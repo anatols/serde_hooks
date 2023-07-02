@@ -74,7 +74,7 @@ where
     },
 }
 
-pub trait Hooks {
+pub trait SerializerWrapperHooks {
     fn path_push(&self, segment: PathSegment);
     fn path_pop(&self);
 
@@ -83,18 +83,18 @@ pub trait Hooks {
     fn before_serialize(&self) -> Action;
 }
 
-pub(super) struct SerializerWrapper<'h, S, H: Hooks> {
+pub(super) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
     serializer: S,
     hooks: &'h H,
 }
 
-impl<'h, S: Serializer, H: Hooks> SerializerWrapper<'h, S, H> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializerWrapper<'h, S, H> {
     pub(super) fn new(serializer: S, hooks: &'h H) -> Self {
         Self { serializer, hooks }
     }
 }
 
-impl<'h, S: Serializer, H: Hooks> Serializer for SerializerWrapper<'h, S, H> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrapper<'h, S, H> {
     type Ok = S::Ok;
     type Error = S::Error;
     type SerializeSeq = S::SerializeSeq;
@@ -280,36 +280,12 @@ impl<'h, S: Serializer, H: Hooks> Serializer for SerializerWrapper<'h, S, H> {
     }
 }
 
-pub struct SerializableWithHooks<'s, T: Serialize + ?Sized, H: Hooks> {
-    serializable: &'s T,
-    hooks: H,
-}
-
-impl<'s, T: Serialize + ?Sized, H: Hooks> SerializableWithHooks<'s, T, H> {
-    pub(super) fn new(serializable: &'s T, hooks: H) -> Self {
-        Self {
-            serializable,
-            hooks,
-        }
-    }
-}
-
-impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithHooks<'_, T, H> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.serializable
-            .serialize(SerializerWrapper::new(serializer, &self.hooks))
-    }
-}
-
-pub struct SerializableWithHooksRef<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
+pub struct SerializableWithHooks<'s, 'h, T: Serialize + ?Sized, H: SerializerWrapperHooks> {
     serializable: &'s T,
     hooks: &'h H,
 }
 
-impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithHooksRef<'_, '_, T, H> {
+impl<T: Serialize + ?Sized, H: SerializerWrapperHooks> Serialize for SerializableWithHooks<'_, '_, T, H> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -336,7 +312,7 @@ mod tests {
         }
     }
 
-    impl Hooks for MockHooks {
+    impl SerializerWrapperHooks for MockHooks {
         fn path_push(&self, segment: PathSegment) {
             MockHooks::path_push(self, segment)
         }
@@ -395,7 +371,10 @@ mod tests {
                 .collect(),
         };
 
-        let wrapped = SerializableWithHooks::new(&s, hooks);
+        let wrapped = SerializableWithHooks{
+            serializable: &s,
+            hooks: &hooks
+        };
 
         print!("{}", serde_json::to_string_pretty(&wrapped).unwrap());
     }

@@ -1,13 +1,13 @@
 use serde::{ser::Error, Serialize, Serializer};
 
-use super::{Action, Hooks, PathSegment, SerializableWithHooksRef};
+use super::{Action, SerializerWrapperHooks, PathSegment, SerializableWithHooks};
 
-pub struct SerializeStructWrapper<'h, S: Serializer, H: Hooks> {
+pub struct SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_struct: S::SerializeStruct,
     hooks: &'h H,
 }
 
-impl<'h, S: Serializer, H: Hooks> SerializeStructWrapper<'h, S, H> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S, H> {
     pub(super) fn new(serialize_struct: S::SerializeStruct, hooks: &'h H) -> Self {
         Self {
             serialize_struct,
@@ -16,7 +16,7 @@ impl<'h, S: Serializer, H: Hooks> SerializeStructWrapper<'h, S, H> {
     }
 }
 
-impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeStruct for SerializeStructWrapper<'h, S, H> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct for SerializeStructWrapper<'h, S, H> {
     type Ok = S::Ok;
     type Error = S::Error;
 
@@ -33,7 +33,7 @@ impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeStruct for SerializeStruc
 
         let res = match self.hooks.before_serialize() {
             Action::GoAhead => {
-                let s = SerializableWithHooksRef {
+                let s = SerializableWithHooks {
                     serializable: value,
                     hooks: self.hooks,
                 };

@@ -3,15 +3,15 @@ use std::{fmt::Display, cell::Cell};
 use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
-use super::{Hooks, MapKey, SerializableWithHooksRef};
+use super::{SerializerWrapperHooks, MapKey, SerializableWithHooks};
 
-pub struct SerializeMapWrapper<'h, S: Serializer, H: Hooks> {
+pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_map: S::SerializeMap,
     hooks: &'h H,
     entry_index: Cell<usize>,
 }
 
-impl<'h, S: Serializer, H: Hooks> SerializeMapWrapper<'h, S, H> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H> {
     pub(super) fn new(serialize_map: S::SerializeMap, hooks: &'h H) -> Self {
         Self {
             serialize_map,
@@ -21,7 +21,7 @@ impl<'h, S: Serializer, H: Hooks> SerializeMapWrapper<'h, S, H> {
     }
 }
 
-impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeMap for SerializeMapWrapper<'h, S, H> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap for SerializeMapWrapper<'h, S, H> {
     type Ok = S::Ok;
     type Error = S::Error;
 
@@ -60,7 +60,7 @@ impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeMap for SerializeMapWrapp
         self.hooks.path_push(map_key.into());
         let res = self.serialize_map.serialize_entry(
             key,
-            &SerializableWithHooksRef {
+            &SerializableWithHooks {
                 serializable: value,
                 hooks: self.hooks,
             },
