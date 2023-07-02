@@ -126,6 +126,7 @@ impl<'h, S: Serializer, H: Hooks> Serializer for SerializerWrapper<'h, S, H> {
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
+        println!("serialize_i32 {v}");
         self.serializer.serialize_i32(v)
     }
 

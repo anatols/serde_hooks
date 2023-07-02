@@ -1,6 +1,6 @@
 use serde::{Serialize, Serializer};
 
-use super::{Hooks, MapKey, PathSegment, SerializeStructWrapper};
+use super::{Hooks, MapKey, SerializerWrapper};
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: Hooks> {
     serialize_map: S::SerializeMap,
@@ -51,7 +51,10 @@ impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeMap for SerializeMapWrapp
                 key,
                 hooks: self.hooks,
             },
-            value,
+            &MapValueWrapper {
+                value,
+                hooks: self.hooks,
+            },
         )
     }
 
@@ -75,6 +78,24 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for MapKeyWrapper<'_, '_, T, H> 
     }
 }
 
+pub struct MapValueWrapper<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
+    value: &'s T,
+    hooks: &'h H,
+}
+
+impl<T: Serialize + ?Sized, H: Hooks> Serialize for MapValueWrapper<'_, '_, T, H> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let res = self
+            .value
+            .serialize(SerializerWrapper::new(serializer, self.hooks));
+        self.hooks.path_pop();
+        res
+    }
+}
+
 struct MapKeyCapture<'h, S, H: Hooks> {
     serializer: S,
     hooks: &'h H,
@@ -93,8 +114,8 @@ impl<'h, S: Serializer, H: Hooks> Serializer for MapKeyCapture<'h, S, H> {
     type SerializeTuple = S::SerializeTuple;
     type SerializeTupleStruct = S::SerializeTupleStruct;
     type SerializeTupleVariant = S::SerializeTupleVariant;
-    type SerializeMap = SerializeMapWrapper<'h, S, H>;
-    type SerializeStruct = SerializeStructWrapper<'h, S, H>;
+    type SerializeMap = S::SerializeMap;
+    type SerializeStruct = S::SerializeStruct;
     type SerializeStructVariant = S::SerializeStructVariant;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
@@ -237,9 +258,7 @@ impl<'h, S: Serializer, H: Hooks> Serializer for MapKeyCapture<'h, S, H> {
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        self.serializer
-            .serialize_map(len)
-            .map(|serialize_map| SerializeMapWrapper::new(serialize_map, self.hooks))
+        self.serializer.serialize_map(len)
     }
 
     fn serialize_struct(
@@ -247,13 +266,7 @@ impl<'h, S: Serializer, H: Hooks> Serializer for MapKeyCapture<'h, S, H> {
         name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        println!("serialize_struct {name} {len}");
-
-        let actions = self.hooks.before_struct::<S>();
-
-        self.serializer
-            .serialize_struct(name, len)
-            .map(|serialize_struct| SerializeStructWrapper::new(serialize_struct, self.hooks))
+        self.serializer.serialize_struct(name, len)
     }
 
     fn serialize_struct_variant(
