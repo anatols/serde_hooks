@@ -1,6 +1,10 @@
+use crate::ser::Path;
+
 pub trait Hooks {
     fn start(&self) {}
     fn end(&self) {}
+
+    fn before_container(&self, path: &Path) {}
 }
 
 // skip field(s)

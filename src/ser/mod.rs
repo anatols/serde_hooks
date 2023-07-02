@@ -3,8 +3,10 @@ use serde::Serialize;
 mod context;
 mod hooks;
 mod wrapper;
+mod path;
 
 pub use hooks::Hooks;
+pub use path::Path;
 
 use context::SerializableWithContext;
 

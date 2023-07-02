@@ -3,7 +3,8 @@ use std::{fmt::Display, cell::Cell};
 use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
-use super::{SerializerWrapperHooks, MapKey, SerializableWithHooks};
+use crate::ser::path::MapKey;
+use super::{SerializerWrapperHooks, SerializableWithHooks};
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_map: S::SerializeMap,

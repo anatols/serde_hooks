@@ -34,10 +34,17 @@ fn test_payload() {
         data: String,
     }
     impl ser::Hooks for Hks {
-        // fn handle_something(&mut self) {
-        //     println!("handle_something {}", self.data);
-        //     self.data.push('A');
-        // }
+        fn start(&self) {
+            print!("==== START")
+        }
+
+        fn end(&self) {
+            print!("==== END")
+        }
+
+        fn before_container(&self, path: &ser::Path) {
+            print!("==== before_container {}", path.to_string())
+        }
     }
 
     println!("{}", serde_json::to_string(&payload).unwrap());

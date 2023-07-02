@@ -3,57 +3,13 @@ use serde::{ser::Error, Serialize, Serializer};
 mod map_wrapper;
 mod struct_wrapper;
 
+use crate::ser::path::PathSegment;
 use map_wrapper::SerializeMapWrapper;
 use struct_wrapper::SerializeStructWrapper;
 
-#[derive(Debug, Clone)]
-pub enum MapKey {
-    Bool(usize, bool),
-    I8(usize, i8),
-    I16(usize, i16),
-    I32(usize, i32),
-    I64(usize, i64),
-    U8(usize, u8),
-    U16(usize, u16),
-    U32(usize, u32),
-    U64(usize, u64),
-    F32(usize, f32),
-    F64(usize, f64),
-    Char(usize, char),
-    Str(usize, String),
-    Bytes(usize),
-    None(usize),
-    Unit(usize),
-    UnitStruct(usize),
-    UnitVariant(usize),
-    NewtypeStruct(usize),
-    NewtypeVariant(usize),
-    Seq(usize),
-    Tuple(usize),
-    TupleStruct(usize),
-    TupleVariant(usize),
-    Map(usize),
-    Struct(usize),
-    StructVariant(usize),
-}
-
-#[derive(Debug, Clone)]
-pub enum PathSegment {
-    MapKey(MapKey),
-    StructField(&'static str),
-    SeqIndex(usize),
-}
-
-impl From<MapKey> for PathSegment {
-    fn from(map_key: MapKey) -> Self {
-        PathSegment::MapKey(map_key)
-    }
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Action {
+pub enum ValueAction {
     GoAhead,
-    Skip,
     Replace,
     Error(String),
 }
@@ -78,9 +34,11 @@ pub trait SerializerWrapperHooks {
     fn path_push(&self, segment: PathSegment);
     fn path_pop(&self);
 
+    fn before_value(&self) -> ValueAction;
+
     fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>>;
 
-    fn before_serialize(&self) -> Action;
+    fn before_map<S: Serializer>(&self) -> Vec<StructAction<S>>;
 }
 
 pub(super) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
@@ -106,11 +64,11 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     type SerializeStructVariant = S::SerializeStructVariant;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        match self.hooks.before_serialize() {
-            Action::GoAhead => self.serializer.serialize_bool(v),
-            Action::Skip => unreachable!(),
-            Action::Replace => todo!(),
-            Action::Error(message) => Err(Self::Error::custom(message)),
+        match self.hooks.before_value() {
+            ValueAction::GoAhead => self.serializer.serialize_bool(v),
+            // ValueAction::Skip => unreachable!(),
+            ValueAction::Replace => todo!(),
+            ValueAction::Error(message) => Err(Self::Error::custom(message)),
         }
     }
 
@@ -285,7 +243,9 @@ pub struct SerializableWithHooks<'s, 'h, T: Serialize + ?Sized, H: SerializerWra
     hooks: &'h H,
 }
 
-impl<T: Serialize + ?Sized, H: SerializerWrapperHooks> Serialize for SerializableWithHooks<'_, '_, T, H> {
+impl<T: Serialize + ?Sized, H: SerializerWrapperHooks> Serialize
+    for SerializableWithHooks<'_, '_, T, H>
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -307,7 +267,7 @@ mod tests {
         Hooks {
             fn path_push(&self, segment: PathSegment);
             fn path_pop(&self);
-            fn before_serialize(&self) -> Action;
+            fn before_serialize(&self) -> ValueAction;
             // fn before_struct<S: Serializer + 'static>(&self) -> Vec<StructAction<S>>;
         }
     }
@@ -329,8 +289,12 @@ mod tests {
             }]
         }
 
-        fn before_serialize(&self) -> Action {
+        fn before_value(&self) -> ValueAction {
             MockHooks::before_serialize(self)
+        }
+
+        fn before_map<S: Serializer>(&self) -> Vec<StructAction<S>> {
+            todo!()
         }
     }
 
@@ -361,7 +325,7 @@ mod tests {
 
         hooks
             .expect_before_serialize()
-            .return_const(Action::GoAhead);
+            .return_const(ValueAction::GoAhead);
 
         let s = S {
             field: true,
@@ -371,9 +335,9 @@ mod tests {
                 .collect(),
         };
 
-        let wrapped = SerializableWithHooks{
+        let wrapped = SerializableWithHooks {
             serializable: &s,
-            hooks: &hooks
+            hooks: &hooks,
         };
 
         print!("{}", serde_json::to_string_pretty(&wrapped).unwrap());

@@ -1,8 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use serde::{Serializer, Serialize};
+use serde::{Serialize, Serializer};
 
-use super::{wrapper::{self, StructAction}, Hooks};
+use super::path::{Path, PathSegment};
+use super::{
+    wrapper::{self, StructAction},
+    Hooks,
+};
 
 pub struct SerializableWithContext<'s, T: Serialize + ?Sized, H: Hooks> {
     serializable: &'s T,
@@ -23,11 +27,14 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, 
     where
         S: Serializer,
     {
-        self.serializable
-            .serialize(wrapper::SerializerWrapper::new(serializer, &self.context))
+        self.context.start();
+        let res = self
+            .serializable
+            .serialize(wrapper::SerializerWrapper::new(serializer, &self.context));
+        self.context.end();
+        res
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Context<H: Hooks> {
@@ -35,19 +42,23 @@ pub struct Context<H: Hooks> {
 }
 
 impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
-    fn path_push(&self, segment: wrapper::PathSegment) {
-        todo!()
+    fn path_push(&self, segment: PathSegment) {
+        self.inner.borrow_mut().path.push_segment(segment);
     }
 
     fn path_pop(&self) {
+        self.inner.borrow_mut().path.pop_segment();
+    }
+
+    fn before_value(&self) -> wrapper::ValueAction {
         todo!()
     }
 
-    fn before_serialize(&self) -> wrapper::Action {
+    fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>> {
         todo!()
     }
 
-    fn before_struct<S:Serializer>(&self) -> Vec<StructAction<S>> {
+    fn before_map<S: Serializer>(&self) -> Vec<StructAction<S>> {
         todo!()
     }
 }
@@ -69,32 +80,10 @@ impl<H: Hooks> Context<H> {
     pub(super) fn end(&self) {
         self.inner.borrow().hooks.end();
     }
-
-    // pub(super) fn enter_path(&self, name: String) -> PathDropGuard<H> {
-    //     todo!()
-    //     // self.path.segments.push(name);
-    //     // PathDropGuard(self)
-    // }
-
-    // fn exit_path(&self) {
-    //     todo!()
-    //     // self.path.segments.pop();
-    // }
 }
 
 #[derive(Debug)]
 struct ContextInner<H: Hooks> {
     path: Path,
     hooks: H,
-}
-
-#[derive(Debug, Default)]
-struct Path {
-    segments: Vec<String>,
-}
-
-struct PathDropGuard<'a, H: Hooks>(&'a Context<H>);
-
-impl<'a, H: Hooks> Drop for PathDropGuard<'a, H> {
-    fn drop(&mut self) {}
 }
