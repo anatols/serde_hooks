@@ -1,10 +1,14 @@
-use serde::{Serialize, Serializer};
+use std::{fmt::Display, cell::Cell};
 
-use super::{Hooks, MapKey, SerializerWrapper};
+use serde::{ser::Impossible, Serialize, Serializer};
+use thiserror::Error;
+
+use super::{Hooks, MapKey, SerializableWithHooksRef};
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: Hooks> {
     serialize_map: S::SerializeMap,
     hooks: &'h H,
+    entry_index: Cell<usize>,
 }
 
 impl<'h, S: Serializer, H: Hooks> SerializeMapWrapper<'h, S, H> {
@@ -12,6 +16,7 @@ impl<'h, S: Serializer, H: Hooks> SerializeMapWrapper<'h, S, H> {
         Self {
             serialize_map,
             hooks,
+            entry_index: Cell::new(0),
         }
     }
 }
@@ -46,16 +51,22 @@ impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeMap for SerializeMapWrapp
         V: Serialize,
     {
         println!("serialize_entry");
-        self.serialize_map.serialize_entry(
-            &MapKeyWrapper {
-                key,
+        let map_key = match key.serialize(MapKeyCapture { entry_index: self.entry_index.get() }) {
+            Ok(map_key) => map_key,
+            Err(MapKeyCaptureError(map_key)) => map_key,
+        };
+        self.entry_index.replace(self.entry_index.get() + 1);
+
+        self.hooks.path_push(map_key.into());
+        let res = self.serialize_map.serialize_entry(
+            key,
+            &SerializableWithHooksRef {
+                serializable: value,
                 hooks: self.hooks,
             },
-            &MapValueWrapper {
-                value,
-                hooks: self.hooks,
-            },
-        )
+        );
+        self.hooks.path_pop();
+        res
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -63,220 +74,187 @@ impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeMap for SerializeMapWrapp
     }
 }
 
-pub struct MapKeyWrapper<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
-    key: &'s T,
-    hooks: &'h H,
-}
+#[derive(Debug, Error)]
+#[error("")]
+struct MapKeyCaptureError(MapKey);
 
-impl<T: Serialize + ?Sized, H: Hooks> Serialize for MapKeyWrapper<'_, '_, T, H> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl serde::ser::Error for MapKeyCaptureError {
+    fn custom<T>(_msg: T) -> Self
     where
-        S: Serializer,
+        T: Display,
     {
-        self.key
-            .serialize(MapKeyCapture::new(serializer, self.hooks))
+        unimplemented!()
     }
 }
 
-pub struct MapValueWrapper<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
-    value: &'s T,
-    hooks: &'h H,
+struct MapKeyCapture {
+    entry_index: usize,
 }
 
-impl<T: Serialize + ?Sized, H: Hooks> Serialize for MapValueWrapper<'_, '_, T, H> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let res = self
-            .value
-            .serialize(SerializerWrapper::new(serializer, self.hooks));
-        self.hooks.path_pop();
-        res
-    }
-}
-
-struct MapKeyCapture<'h, S, H: Hooks> {
-    serializer: S,
-    hooks: &'h H,
-}
-
-impl<'h, S: Serializer, H: Hooks> MapKeyCapture<'h, S, H> {
-    fn new(serializer: S, hooks: &'h H) -> Self {
-        Self { serializer, hooks }
-    }
-}
-
-impl<'h, S: Serializer, H: Hooks> Serializer for MapKeyCapture<'h, S, H> {
-    type Ok = S::Ok;
-    type Error = S::Error;
-    type SerializeSeq = S::SerializeSeq;
-    type SerializeTuple = S::SerializeTuple;
-    type SerializeTupleStruct = S::SerializeTupleStruct;
-    type SerializeTupleVariant = S::SerializeTupleVariant;
-    type SerializeMap = S::SerializeMap;
-    type SerializeStruct = S::SerializeStruct;
-    type SerializeStructVariant = S::SerializeStructVariant;
+impl Serializer for MapKeyCapture {
+    type Ok = MapKey;
+    type Error = MapKeyCaptureError;
+    type SerializeSeq = Impossible<Self::Ok, Self::Error>;
+    type SerializeTuple = Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
+    type SerializeMap = Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        self.hooks.path_push(MapKey::Bool(v).into());
-        self.serializer.serialize_bool(v)
+        Ok(MapKey::Bool(self.entry_index, v))
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_i8(v)
+        Ok(MapKey::I8(self.entry_index, v))
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_i16(v)
+        Ok(MapKey::I16(self.entry_index, v))
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_i32(v)
+        Ok(MapKey::I32(self.entry_index, v))
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_i64(v)
+        Ok(MapKey::I64(self.entry_index, v))
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_u8(v)
+        Ok(MapKey::U8(self.entry_index, v))
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_u16(v)
+        Ok(MapKey::U16(self.entry_index, v))
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_u32(v)
+        Ok(MapKey::U32(self.entry_index, v))
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_u64(v)
+        Ok(MapKey::U64(self.entry_index, v))
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_f32(v)
+        Ok(MapKey::F32(self.entry_index, v))
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_f64(v)
+        Ok(MapKey::F64(self.entry_index, v))
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_char(v)
+        Ok(MapKey::Char(self.entry_index, v))
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        self.hooks.path_push(MapKey::Str(v.to_string()).into());
-        self.serializer.serialize_str(v)
+        Ok(MapKey::Str(self.entry_index, v.to_string()))
     }
 
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_bytes(v)
+    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
+        Ok(MapKey::Bytes(self.entry_index))
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_none()
+        Ok(MapKey::None(self.entry_index))
     }
 
     fn serialize_some<T: ?Sized>(self, v: &T) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
-        self.serializer.serialize_some(v)
+        v.serialize(self)
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_unit()
+        Ok(MapKey::Unit(self.entry_index))
     }
 
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_unit_struct(name)
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        Ok(MapKey::UnitStruct(self.entry_index))
     }
 
     fn serialize_unit_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        self.serializer
-            .serialize_unit_variant(name, variant_index, variant)
+        Ok(MapKey::UnitVariant(self.entry_index))
     }
 
     fn serialize_newtype_struct<T: ?Sized>(
         self,
-        name: &'static str,
-        value: &T,
+        _name: &'static str,
+        _value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
-        self.serializer.serialize_newtype_struct(name, value)
+        Ok(MapKey::NewtypeStruct(self.entry_index))
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        value: &T,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
-        self.serializer
-            .serialize_newtype_variant(name, variant_index, variant, value)
+        Ok(MapKey::NewtypeVariant(self.entry_index))
     }
 
-    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        self.serializer.serialize_seq(len)
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        Err(MapKeyCaptureError(MapKey::Seq(self.entry_index)))
     }
 
-    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        self.serializer.serialize_tuple(len)
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        Err(MapKeyCaptureError(MapKey::Tuple(self.entry_index)))
     }
 
     fn serialize_tuple_struct(
         self,
-        name: &'static str,
-        len: usize,
+        _name: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        self.serializer.serialize_tuple_struct(name, len)
+        Err(MapKeyCaptureError(MapKey::TupleStruct(self.entry_index)))
     }
 
     fn serialize_tuple_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        self.serializer
-            .serialize_tuple_variant(name, variant_index, variant, len)
+        Err(MapKeyCaptureError(MapKey::TupleVariant(self.entry_index)))
     }
 
-    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        self.serializer.serialize_map(len)
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        Err(MapKeyCaptureError(MapKey::Map(self.entry_index)))
     }
 
     fn serialize_struct(
         self,
-        name: &'static str,
-        len: usize,
+        _name: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        self.serializer.serialize_struct(name, len)
+        Err(MapKeyCaptureError(MapKey::Struct(self.entry_index)))
     }
 
     fn serialize_struct_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-        len: usize,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        self.serializer
-            .serialize_struct_variant(name, variant_index, variant, len)
+        Err(MapKeyCaptureError(MapKey::StructVariant(self.entry_index)))
     }
 }
