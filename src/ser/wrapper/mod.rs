@@ -8,16 +8,49 @@ mod struct_wrapper;
 use map_wrapper::SerializeMapWrapper;
 use struct_wrapper::SerializeStructWrapper;
 
-pub(super) struct SerializerWrapper<'h, S, H: Hooks> {
-    serializer: S,
-    hooks: &'h H,
+#[derive(Debug, Clone)]
+pub enum MapKey {
+    Bool(bool),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    F32(f32),
+    F64(f64),
+    Char(char),
+    Str(String),
+    Bytes(usize),
+    None(usize),
+    Some(usize),
+    Unit(usize),
+    UnitStruct(usize),
+    UnitVariant(usize),
+    NewtypeStruct(usize),
+    NewtypeVariant(usize),
+    Seq(usize),
+    Tuple(usize),
+    TupleStruct(usize),
+    TupleVariant(usize),
+    Map(usize),
+    Struct(usize),
+    StructVariant(usize),
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum PathSegment {
-    MapKey,
+    MapKey(MapKey),
     StructField(&'static str),
     SeqIndex(usize),
+}
+
+impl From<MapKey> for PathSegment {
+    fn from(map_key: MapKey) -> Self {
+        PathSegment::MapKey(map_key)
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -51,6 +84,11 @@ pub trait Hooks {
     fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>>;
 
     fn before_serialize(&self) -> Action;
+}
+
+pub(super) struct SerializerWrapper<'h, S, H: Hooks> {
+    serializer: S,
+    hooks: &'h H,
 }
 
 impl<'h, S: Serializer, H: Hooks> SerializerWrapper<'h, S, H> {
@@ -285,6 +323,8 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithHooksRef<'_,
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use mockall::predicate::*;
     use mockall::*;
@@ -332,6 +372,7 @@ mod tests {
             field: bool,
             // #[serde(flatten)]
             child: Child,
+            map: HashMap<String, i32>,
         }
 
         let mut hooks = MockHooks::new();
@@ -348,14 +389,16 @@ mod tests {
             .expect_before_serialize()
             .return_const(Action::GoAhead);
 
-        let s = SerializableWithHooks::new(
-            &S {
-                field: true,
-                child: Child { name: "child" },
-            },
-            hooks,
-        );
+        let s = S {
+            field: true,
+            child: Child { name: "child" },
+            map: [("foo".to_string(), 123), ("bar".to_string(), 234)]
+                .into_iter()
+                .collect(),
+        };
 
-        print!("{}", serde_json::to_string_pretty(&s).unwrap());
+        let wrapped = SerializableWithHooks::new(&s, hooks);
+
+        print!("{}", serde_json::to_string_pretty(&wrapped).unwrap());
     }
 }
