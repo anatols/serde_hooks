@@ -2,6 +2,12 @@ use std::{fmt::Display, marker::PhantomData};
 
 use serde::{ser::Error, Serialize, Serializer};
 
+mod map_wrapper;
+mod struct_wrapper;
+
+use map_wrapper::SerializeMapWrapper;
+use struct_wrapper::SerializeStructWrapper;
+
 pub(super) struct SerializerWrapper<'h, S, H: Hooks> {
     serializer: S,
     hooks: &'h H,
@@ -209,10 +215,7 @@ impl<'h, S: Serializer, H: Hooks> Serializer for SerializerWrapper<'h, S, H> {
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         self.serializer
             .serialize_map(len)
-            .map(|serialize_map| SerializeMapWrapper {
-                serialize_map,
-                hooks: self.hooks,
-            })
+            .map(|serialize_map| SerializeMapWrapper::new(serialize_map, self.hooks))
     }
 
     fn serialize_struct(
@@ -226,10 +229,7 @@ impl<'h, S: Serializer, H: Hooks> Serializer for SerializerWrapper<'h, S, H> {
 
         self.serializer
             .serialize_struct(name, len)
-            .map(|serialize_struct| SerializeStructWrapper {
-                serialize_struct,
-                hooks: self.hooks,
-            })
+            .map(|serialize_struct| SerializeStructWrapper::new(serialize_struct, self.hooks))
     }
 
     fn serialize_struct_variant(
@@ -241,77 +241,6 @@ impl<'h, S: Serializer, H: Hooks> Serializer for SerializerWrapper<'h, S, H> {
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
         self.serializer
             .serialize_struct_variant(name, variant_index, variant, len)
-    }
-}
-
-pub struct SerializeMapWrapper<'h, S: Serializer, H: Hooks> {
-    serialize_map: S::SerializeMap,
-    hooks: &'h H,
-}
-
-impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeMap for SerializeMapWrapper<'h, S, H> {
-    type Ok = S::Ok;
-    type Error = S::Error;
-
-    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
-    where
-        T: Serialize,
-    {
-        println!("serialize_key");
-        self.serialize_map.serialize_key(key)
-    }
-
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
-    where
-        T: Serialize,
-    {
-        println!("serialize_value");
-        self.serialize_map.serialize_value(value)
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        self.serialize_map.end()
-    }
-}
-
-pub struct SerializeStructWrapper<'h, S: Serializer, H: Hooks> {
-    serialize_struct: S::SerializeStruct,
-    hooks: &'h H,
-}
-
-impl<'h, S: Serializer, H: Hooks> serde::ser::SerializeStruct for SerializeStructWrapper<'h, S, H> {
-    type Ok = S::Ok;
-    type Error = S::Error;
-
-    fn serialize_field<T: ?Sized>(
-        &mut self,
-        key: &'static str,
-        value: &T,
-    ) -> Result<(), Self::Error>
-    where
-        T: Serialize,
-    {
-        println!("serialize_field {key}");
-        self.hooks.path_push(PathSegment::StructField(key));
-
-        let res = match self.hooks.before_serialize() {
-            Action::GoAhead => {
-                let s = SerializableWithHooksRef {
-                    serializable: value,
-                    hooks: self.hooks,
-                };
-                self.serialize_struct.serialize_field(key, &s)
-            }
-            Action::Skip => self.skip_field(key),
-            Action::Replace => todo!(),
-            Action::Error(message) => Err(Self::Error::custom(message)),
-        };
-        self.hooks.path_pop();
-        res
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        self.serialize_struct.end()
     }
 }
 
@@ -382,9 +311,7 @@ mod tests {
             // MockHooks::before_struct(self)
             vec![StructAction::AddOrReplaceField {
                 name: "field",
-                with: |serializer| { 
-                    serializer.serialize_str("fake")
-                 },
+                with: |serializer| serializer.serialize_str("fake"),
             }]
         }
 
