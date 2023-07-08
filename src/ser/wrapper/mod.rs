@@ -193,11 +193,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         println!("serialize_map {len:?}");
 
         let actions = self.hooks.on_map(len);
-        println!("got {} actions", actions.len());
-
-        //TODO adjust len based on actions
         self.serializer
-            .serialize_map(len)
+            .serialize_map(if actions.is_empty() { len } else { None })
             .map(|serialize_map| SerializeMapWrapper::new(serialize_map, self.hooks, actions))
     }
 
