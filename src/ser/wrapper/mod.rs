@@ -9,38 +9,19 @@ use crate::ser::path::PathSegment;
 use map_wrapper::SerializeMapWrapper;
 use struct_wrapper::SerializeStructWrapper;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ValueAction {
-    GoAhead,
-    Replace,
-    Error(String),
-}
-
-#[derive(Debug, Clone)]
-pub enum StructAction<S>
-where
-    S: Serializer,
-    // F: Fn(S) -> Result<S::Ok, S::Error>
-{
-    RetainFields(Vec<&'static str>),
-    AddOrReplaceField {
-        name: &'static str,
-        with: fn(S) -> Result<S::Ok, S::Error>,
-    },
-    RemoveField {
-        name: &'static str,
-    },
+pub enum OnValueAction<S: Serializer> {
+    ContinueSerialization(S),
+    ValueReplaced(Result<S::Ok, S::Error>),
 }
 
 pub trait SerializerWrapperHooks {
     fn path_push(&self, segment: PathSegment);
     fn path_pop(&self);
 
-    fn before_value(&self) -> ValueAction;
+    fn on_map(&self, len: Option<usize>) -> Vec<MapAction>;
 
-    fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>>;
-
-    fn before_map<S: Serializer>(&self, len: Option<usize>) -> Vec<MapAction>;
+    //TODO primitive values can be passed in as an enum, similar to MapKey in Path
+    fn on_value<S: Serializer>(&self, serializer: S) -> OnValueAction<S>;
 }
 
 pub(super) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
@@ -66,12 +47,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     type SerializeStructVariant = S::SerializeStructVariant;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        match self.hooks.before_value() {
-            ValueAction::GoAhead => self.serializer.serialize_bool(v),
-            // ValueAction::Skip => unreachable!(),
-            ValueAction::Replace => todo!(),
-            ValueAction::Error(message) => Err(Self::Error::custom(message)),
-        }
+        self.serializer.serialize_bool(v)
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
@@ -120,7 +96,12 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_str(v)
+        //TODO make conditional (only for when it's a map key?)
+        //TODO impl for all serialize_ calls
+        match self.hooks.on_value(self.serializer) {
+            OnValueAction::ContinueSerialization(s) => s.serialize_str(v),
+            OnValueAction::ValueReplaced(r) => r,
+        }
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
@@ -211,9 +192,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         println!("serialize_map {len:?}");
 
-        let actions = self.hooks.before_map::<S>(len);
+        let actions = self.hooks.on_map(len);
         println!("got {} actions", actions.len());
 
+        //TODO adjust len based on actions
         self.serializer
             .serialize_map(len)
             .map(|serialize_map| SerializeMapWrapper::new(serialize_map, self.hooks, actions))
@@ -225,8 +207,6 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
         println!("serialize_struct {name} {len}");
-
-        let actions = self.hooks.before_struct::<S>();
 
         self.serializer
             .serialize_struct(name, len)
@@ -274,7 +254,7 @@ mod tests {
         Hooks {
             fn path_push(&self, segment: PathSegment);
             fn path_pop(&self);
-            fn before_serialize(&self) -> ValueAction;
+            // fn before_serialize(&self) -> ValueAction;
             // fn before_struct<S: Serializer + 'static>(&self) -> Vec<StructAction<S>>;
         }
     }
@@ -288,19 +268,23 @@ mod tests {
             MockHooks::path_pop(self)
         }
 
-        fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>> {
-            // MockHooks::before_struct(self)
-            vec![StructAction::AddOrReplaceField {
-                name: "field",
-                with: |serializer| serializer.serialize_str("fake"),
-            }]
+        // fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>> {
+        //     // MockHooks::before_struct(self)
+        //     vec![StructAction::AddOrReplaceField {
+        //         name: "field",
+        //         with: |serializer| serializer.serialize_str("fake"),
+        //     }]
+        // }
+
+        // fn before_value(&self) -> ValueAction {
+        //     MockHooks::before_serialize(self)
+        // }
+
+        fn on_map(&self, _len: Option<usize>) -> Vec<MapAction> {
+            todo!()
         }
 
-        fn before_value(&self) -> ValueAction {
-            MockHooks::before_serialize(self)
-        }
-
-        fn before_map<S: Serializer>(&self, _len: Option<usize>) -> Vec<MapAction> {
+        fn on_value<S: Serializer>(&self, serializer: S) -> OnValueAction<S> {
             todo!()
         }
     }
@@ -330,9 +314,9 @@ mod tests {
             .expect_path_pop()
             .returning(|| println!("### path_pop"));
 
-        hooks
-            .expect_before_serialize()
-            .return_const(ValueAction::GoAhead);
+        // hooks
+        //     .expect_before_serialize()
+        //     .return_const(ValueAction::GoAhead);
 
         let s = S {
             field: true,

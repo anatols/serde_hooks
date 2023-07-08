@@ -1,6 +1,6 @@
 use serde::{ser::Error, Serialize, Serializer};
 
-use super::{ValueAction, SerializerWrapperHooks, PathSegment, SerializableWithHooks};
+use super::{PathSegment, SerializableWithHooks, SerializerWrapperHooks};
 
 pub struct SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_struct: S::SerializeStruct,
@@ -16,7 +16,9 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
     }
 }
 
-impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct for SerializeStructWrapper<'h, S, H> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
+    for SerializeStructWrapper<'h, S, H>
+{
     type Ok = S::Ok;
     type Error = S::Error;
 
@@ -31,18 +33,12 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct f
         println!("serialize_field {key}");
         self.hooks.path_push(PathSegment::StructField(key));
 
-        let res = match self.hooks.before_value() {
-            ValueAction::GoAhead => {
-                let s = SerializableWithHooks {
-                    serializable: value,
-                    hooks: self.hooks,
-                };
-                self.serialize_struct.serialize_field(key, &s)
-            }
-            // ValueAction::Skip => self.skip_field(key),
-            ValueAction::Replace => todo!(),
-            ValueAction::Error(message) => Err(Self::Error::custom(message)),
+        let s = SerializableWithHooks {
+            serializable: value,
+            hooks: self.hooks,
         };
+        let res = self.serialize_struct.serialize_field(key, &s);
+
         self.hooks.path_pop();
         res
     }

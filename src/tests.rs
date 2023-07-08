@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 // struct we can't change
 #[derive(Serialize)]
@@ -45,6 +45,11 @@ fn test_payload() {
         fn on_map(&self, map: &mut ser::MapScope) {
             println!("==== MAP {} {:?}", map.path().to_string(), map.map_len());
             map.skip_key("department_id");
+        }
+
+        fn on_value<S: Serializer>(&self, value: &mut ser::ValueScope<S>) {
+            println!("==== VALUE {}", value.path().to_string());
+            value.replace("IT");
         }
     }
 

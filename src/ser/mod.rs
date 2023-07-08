@@ -5,7 +5,7 @@ mod hooks;
 mod path;
 mod wrapper;
 
-pub use hooks::{Hooks, MapScope};
+pub use hooks::{Hooks, MapScope, ValueScope};
 pub use path::Path;
 
 use context::SerializableWithContext;

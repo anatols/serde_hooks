@@ -1,4 +1,8 @@
+use serde::{Serialize, Serializer};
+
 use crate::ser::Path;
+
+use super::wrapper::OnValueAction;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MapKey {
@@ -35,8 +39,8 @@ pub struct MapScope<'p> {
     actions: Vec<MapAction>,
 }
 
-impl<'h> MapScope<'h> {
-    pub(crate) fn new(path: &'h Path, map_len: Option<usize>) -> Self {
+impl<'p> MapScope<'p> {
+    pub(crate) fn new(path: &'p Path, map_len: Option<usize>) -> Self {
         Self {
             path,
             map_len,
@@ -57,8 +61,40 @@ impl<'h> MapScope<'h> {
         self.map_len
     }
 
+    //TODO make chainable
     pub fn skip_key(&mut self, key: impl Into<MapKey>) {
         self.actions.push(MapAction::SkipKey(key.into()));
+    }
+}
+
+pub struct ValueScope<'p, S: Serializer> {
+    path: &'p Path,
+    action: Option<OnValueAction<S>>,
+}
+
+impl<'p, S: Serializer> ValueScope<'p, S> {
+    pub(crate) fn new(path: &'p Path, serializer: S) -> Self {
+        Self {
+            path,
+            action: Some(OnValueAction::ContinueSerialization(serializer)),
+        }
+    }
+
+    pub(crate) fn into_action(self) -> OnValueAction<S> {
+        self.action.unwrap()
+    }
+
+    pub fn path(&self) -> &Path {
+        self.path
+    }
+
+    pub fn replace<T: Serialize + ?Sized>(&mut self, new_value: &T) {
+        let serializer = match self.action.take().unwrap() {
+            OnValueAction::ContinueSerialization(s) => s,
+            OnValueAction::ValueReplaced(_) => panic!("value already replaced"),
+        };
+        let res = new_value.serialize(serializer);
+        self.action = Some(OnValueAction::ValueReplaced(res));
     }
 }
 
@@ -67,6 +103,8 @@ pub trait Hooks {
     fn end(&self) {}
 
     fn on_map(&self, _map: &mut MapScope) {}
+
+    fn on_value<S: Serializer>(&self, _value: &mut ValueScope<S>) {}
 }
 
 // skip field(s)

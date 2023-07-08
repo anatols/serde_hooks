@@ -1,10 +1,10 @@
-use std::{fmt::Display, cell::Cell};
+use std::{cell::Cell, fmt::Display};
 
 use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
-use crate::ser::{path::MapKey, hooks::MapAction};
-use super::{SerializerWrapperHooks, SerializableWithHooks};
+use super::{SerializableWithHooks, SerializerWrapperHooks};
+use crate::ser::{hooks::MapAction, path::MapKey};
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_map: S::SerializeMap,
@@ -14,7 +14,11 @@ pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H> {
-    pub(super) fn new(serialize_map: S::SerializeMap, hooks: &'h H, actions: Vec<MapAction>) -> Self {
+    pub(super) fn new(
+        serialize_map: S::SerializeMap,
+        hooks: &'h H,
+        actions: Vec<MapAction>,
+    ) -> Self {
         Self {
             serialize_map,
             hooks,
@@ -24,7 +28,9 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H>
     }
 }
 
-impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap for SerializeMapWrapper<'h, S, H> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
+    for SerializeMapWrapper<'h, S, H>
+{
     type Ok = S::Ok;
     type Error = S::Error;
 
@@ -54,20 +60,40 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap for 
         V: Serialize,
     {
         println!("serialize_entry");
-        let map_key = match key.serialize(MapKeyCapture { entry_index: self.entry_index.get() }) {
+        let map_key = match key.serialize(MapKeyCapture {
+            entry_index: self.entry_index.get(),
+        }) {
             Ok(map_key) => map_key,
             Err(MapKeyCaptureError(map_key)) => map_key,
         };
+
+        //TODO some hashmap for keys would be nice
+        let action = self.actions.iter().find(|a| {
+            //TODO map key selection boilerplate
+            match a {
+                MapAction::SkipKey(_k) => false,
+            }
+        });
+
         self.entry_index.replace(self.entry_index.get() + 1);
 
         self.hooks.path_push(map_key.into());
-        let res = self.serialize_map.serialize_entry(
-            key,
-            &SerializableWithHooks {
-                serializable: value,
-                hooks: self.hooks,
-            },
-        );
+
+        let res = match action {
+            None => self.serialize_map.serialize_entry(
+                key,
+                &SerializableWithHooks {
+                    serializable: value,
+                    hooks: self.hooks,
+                },
+            ),
+            Some(MapAction::SkipKey(_k)) => {
+                //TODO pop path
+                //TODO is this all?
+                return Ok(());
+            }
+        };
+
         self.hooks.path_pop();
         res
     }

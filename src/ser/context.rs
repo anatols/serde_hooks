@@ -2,12 +2,9 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Serialize, Serializer};
 
+use super::hooks::{Hooks, MapScope, ValueScope, MapAction};
 use super::path::{Path, PathSegment};
-use super::{
-    hooks::MapAction,
-    wrapper::{self, StructAction},
-    Hooks, MapScope,
-};
+use super::wrapper;
 
 pub struct SerializableWithContext<'s, T: Serialize + ?Sized, H: Hooks> {
     serializable: &'s T,
@@ -51,19 +48,19 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
         self.inner.borrow_mut().path.pop_segment();
     }
 
-    fn before_value(&self) -> wrapper::ValueAction {
-        todo!()
-    }
-
-    fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>> {
-        todo!()
-    }
-
-    fn before_map<S: Serializer>(&self, len: Option<usize>) -> Vec<MapAction> {
+    fn on_map(&self, len: Option<usize>) -> Vec<MapAction> {
         let path = &self.inner.borrow().path;
         let mut scope = MapScope::new(path, len);
         self.inner.borrow().hooks.on_map(&mut scope);
         scope.into_actions()
+    }
+
+    fn on_value<S: Serializer>(&self, serializer: S) -> wrapper::OnValueAction<S> {
+        let path = &self.inner.borrow().path;
+
+        let mut scope = ValueScope::new(path, serializer);
+        self.inner.borrow().hooks.on_value(&mut scope);
+        scope.into_action()
     }
 }
 
