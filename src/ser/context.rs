@@ -4,8 +4,9 @@ use serde::{Serialize, Serializer};
 
 use super::path::{Path, PathSegment};
 use super::{
+    hooks::MapAction,
     wrapper::{self, StructAction},
-    Hooks,
+    Hooks, MapScope,
 };
 
 pub struct SerializableWithContext<'s, T: Serialize + ?Sized, H: Hooks> {
@@ -58,8 +59,11 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
         todo!()
     }
 
-    fn before_map<S: Serializer>(&self) -> Vec<StructAction<S>> {
-        todo!()
+    fn before_map<S: Serializer>(&self, len: Option<usize>) -> Vec<MapAction> {
+        let path = &self.inner.borrow().path;
+        let mut scope = MapScope::new(path, len);
+        self.inner.borrow().hooks.on_map(&mut scope);
+        scope.into_actions()
     }
 }
 

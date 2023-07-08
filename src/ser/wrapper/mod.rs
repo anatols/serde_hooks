@@ -3,7 +3,9 @@ use serde::{ser::Error, Serialize, Serializer};
 mod map_wrapper;
 mod struct_wrapper;
 
+use super::hooks::MapAction;
 use crate::ser::path::PathSegment;
+
 use map_wrapper::SerializeMapWrapper;
 use struct_wrapper::SerializeStructWrapper;
 
@@ -38,7 +40,7 @@ pub trait SerializerWrapperHooks {
 
     fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>>;
 
-    fn before_map<S: Serializer>(&self) -> Vec<StructAction<S>>;
+    fn before_map<S: Serializer>(&self, len: Option<usize>) -> Vec<MapAction>;
 }
 
 pub(super) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
@@ -207,9 +209,14 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        println!("serialize_map {len:?}");
+
+        let actions = self.hooks.before_map::<S>(len);
+        println!("got {} actions", actions.len());
+
         self.serializer
             .serialize_map(len)
-            .map(|serialize_map| SerializeMapWrapper::new(serialize_map, self.hooks))
+            .map(|serialize_map| SerializeMapWrapper::new(serialize_map, self.hooks, actions))
     }
 
     fn serialize_struct(
@@ -293,7 +300,7 @@ mod tests {
             MockHooks::before_serialize(self)
         }
 
-        fn before_map<S: Serializer>(&self) -> Vec<StructAction<S>> {
+        fn before_map<S: Serializer>(&self, _len: Option<usize>) -> Vec<MapAction> {
             todo!()
         }
     }

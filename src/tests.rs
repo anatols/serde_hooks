@@ -35,15 +35,16 @@ fn test_payload() {
     }
     impl ser::Hooks for Hks {
         fn start(&self) {
-            print!("==== START")
+            println!("==== START")
         }
 
         fn end(&self) {
-            print!("==== END")
+            println!("==== END")
         }
 
-        fn before_container(&self, path: &ser::Path) {
-            print!("==== before_container {}", path.to_string())
+        fn on_map(&self, map: &mut ser::MapScope) {
+            println!("==== MAP {} {:?}", map.path().to_string(), map.map_len());
+            map.skip_key("department_id");
         }
     }
 

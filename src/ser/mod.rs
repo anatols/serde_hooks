@@ -2,10 +2,10 @@ use serde::Serialize;
 
 mod context;
 mod hooks;
-mod wrapper;
 mod path;
+mod wrapper;
 
-pub use hooks::Hooks;
+pub use hooks::{Hooks, MapScope};
 pub use path::Path;
 
 use context::SerializableWithContext;

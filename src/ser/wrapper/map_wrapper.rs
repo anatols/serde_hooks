@@ -3,20 +3,22 @@ use std::{fmt::Display, cell::Cell};
 use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
-use crate::ser::path::MapKey;
+use crate::ser::{path::MapKey, hooks::MapAction};
 use super::{SerializerWrapperHooks, SerializableWithHooks};
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_map: S::SerializeMap,
     hooks: &'h H,
+    actions: Vec<MapAction>,
     entry_index: Cell<usize>,
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H> {
-    pub(super) fn new(serialize_map: S::SerializeMap, hooks: &'h H) -> Self {
+    pub(super) fn new(serialize_map: S::SerializeMap, hooks: &'h H, actions: Vec<MapAction>) -> Self {
         Self {
             serialize_map,
             hooks,
+            actions,
             entry_index: Cell::new(0),
         }
     }
