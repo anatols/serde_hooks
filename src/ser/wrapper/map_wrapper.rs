@@ -3,7 +3,7 @@ use std::{cell::Cell, fmt::Display};
 use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
-use super::{SerializableWithHooks, SerializerWrapperHooks};
+use super::{SerializableWithHooks, SerializerWrapperHooks, OnMapActions};
 use crate::ser::{
     hooks::{MapAction, MapKeySelector, PrimitiveValue},
     path::PathMapKey,
@@ -12,7 +12,7 @@ use crate::ser::{
 pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_map: S::SerializeMap,
     hooks: &'h H,
-    actions: Vec<MapAction>,
+    actions: OnMapActions,
     entry_index: Cell<usize>,
 }
 
@@ -20,7 +20,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H>
     pub(super) fn new(
         serialize_map: S::SerializeMap,
         hooks: &'h H,
-        actions: Vec<MapAction>,
+        actions: OnMapActions,
     ) -> Self {
         Self {
             serialize_map,

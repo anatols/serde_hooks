@@ -46,7 +46,7 @@ fn test_payload() {
             println!("==== MAP {} {:?}", map.path().to_string(), map.map_len());
             // map.skip_entry("department_id");
             map.retain_entry("department_id")
-                .insert_entry("blah", "foo");
+                .insert_entry("department_name", "foo");
         }
 
         fn on_value<S: Serializer>(&self, value: &mut ser::ValueScope<S>) {

@@ -2,7 +2,10 @@ use serde::{Serialize, Serializer};
 
 use crate::ser::Path;
 
-use super::{path::PathMapKey, wrapper::OnValueAction};
+use super::{
+    path::PathMapKey,
+    wrapper::{OnMapActions, OnValueAction},
+};
 
 #[derive(Debug)]
 pub enum MapKeySelector {
@@ -110,8 +113,7 @@ pub enum MapAction {
 pub struct MapScope<'p> {
     path: &'p Path,
     map_len: Option<usize>,
-    //TODO use tinyvec
-    actions: Vec<MapAction>,
+    actions: OnMapActions,
 }
 
 impl<'p> MapScope<'p> {
@@ -119,12 +121,11 @@ impl<'p> MapScope<'p> {
         Self {
             path,
             map_len,
-            actions: vec![],
+            actions: Default::default(),
         }
     }
 
-    pub(crate) fn into_actions(self) -> Vec<MapAction> {
-        //TODO validate if actions are compatible
+    pub(crate) fn into_actions(self) -> OnMapActions {
         self.actions
     }
 

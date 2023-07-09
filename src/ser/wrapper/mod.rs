@@ -1,4 +1,5 @@
 use serde::{ser::Error, Serialize, Serializer};
+use smallvec::SmallVec;
 
 mod map_wrapper;
 mod struct_wrapper;
@@ -14,11 +15,14 @@ pub enum OnValueAction<S: Serializer> {
     ValueReplaced(Result<S::Ok, S::Error>),
 }
 
+pub type OnMapActions = SmallVec<[MapAction; 8]>;
+
 pub trait SerializerWrapperHooks {
+
     fn path_push(&self, segment: PathSegment);
     fn path_pop(&self);
 
-    fn on_map(&self, len: Option<usize>) -> Vec<MapAction>;
+    fn on_map(&self, len: Option<usize>) -> OnMapActions;
 
     //TODO primitive values can be passed in as an enum, similar to MapKey in Path
     fn on_value<S: Serializer>(&self, serializer: S) -> OnValueAction<S>;
@@ -277,7 +281,7 @@ mod tests {
         //     MockHooks::before_serialize(self)
         // }
 
-        fn on_map(&self, _len: Option<usize>) -> Vec<MapAction> {
+        fn on_map(&self, _len: Option<usize>) -> OnMapActions {
             todo!()
         }
 
