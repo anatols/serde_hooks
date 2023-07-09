@@ -238,7 +238,7 @@ impl Serializer for MapKeyCapture {
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        Ok(PathMapKey::Str(self.entry_index, v.to_string()))
+        Ok(PathMapKey::Str(self.entry_index, v.to_owned().into()))
     }
 
     fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {

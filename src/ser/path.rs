@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Write};
+use std::{fmt::{Debug, Display, Write}, borrow::Cow};
 
 use crate::ser::PrimitiveValue;
 
@@ -40,7 +40,7 @@ pub enum PathMapKey {
     F32(usize, f32),
     F64(usize, f64),
     Char(usize, char),
-    Str(usize, String),
+    Str(usize, Cow<'static, str>),
     Bytes(usize),
     None(usize),
     Unit(usize),

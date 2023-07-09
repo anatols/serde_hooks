@@ -41,10 +41,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializerWrapper<'h, S, H> {
 macro_rules! wrap_primitive_serialize {
     ($fn:ident, $type:ty) => {
         fn $fn(self, v: $type) -> Result<Self::Ok, Self::Error> {
-            match self
-                .hooks
-                .on_value(self.serializer, crate::ser::Value::Primitive(v.into()))
-            {
+            match self.hooks.on_value(
+                self.serializer,
+                crate::ser::Value::Primitive(v.to_owned().into()),
+            ) {
                 OnValueAction::ContinueSerialization(s) => s.$fn(v),
                 OnValueAction::ValueReplaced(r) => r,
             }

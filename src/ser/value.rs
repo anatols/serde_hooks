@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, borrow::Cow};
 
 use serde::{Serialize, Serializer};
 
@@ -16,8 +16,7 @@ pub enum PrimitiveValue {
     F32(f32),
     F64(f64),
     Char(char),
-    //TODO can replace with str?
-    Str(String),
+    Str(Cow<'static, str>),
 }
 
 impl Serialize for PrimitiveValue {
@@ -63,9 +62,21 @@ impl Display for PrimitiveValue {
     }
 }
 
-impl From<&str> for PrimitiveValue {
-    fn from(value: &str) -> Self {
-        PrimitiveValue::Str(value.to_string())
+impl From<&'static str> for PrimitiveValue {
+    fn from(value: &'static str) -> Self {
+        PrimitiveValue::Str(value.into())
+    }
+}
+
+impl From<&String> for PrimitiveValue {
+    fn from(value: &String) -> Self {
+        PrimitiveValue::Str(value.clone().into())
+    }
+}
+
+impl From<String> for PrimitiveValue {
+    fn from(value: String) -> Self {
+        PrimitiveValue::Str(value.into())
     }
 }
 
