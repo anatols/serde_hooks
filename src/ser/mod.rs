@@ -3,10 +3,12 @@ use serde::Serialize;
 mod context;
 mod hooks;
 mod path;
+mod value;
 mod wrapper;
 
 pub use hooks::{Hooks, MapScope, ValueScope};
 pub use path::Path;
+pub use value::{PrimitiveValue, Value};
 
 use context::SerializableWithContext;
 

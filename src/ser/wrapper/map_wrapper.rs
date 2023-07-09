@@ -5,8 +5,9 @@ use thiserror::Error;
 
 use super::{OnMapEntryActions, SerializableWithHooks, SerializerWrapperHooks};
 use crate::ser::{
-    hooks::{MapEntryAction, MapKeySelector, PrimitiveValue},
+    hooks::{MapEntryAction, MapKeySelector},
     path::PathMapKey,
+    PrimitiveValue,
 };
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
@@ -18,7 +19,11 @@ pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H> {
-    pub(super) fn new(serialize_map: S::SerializeMap, hooks: &'h H, actions: OnMapEntryActions) -> Self {
+    pub(super) fn new(
+        serialize_map: S::SerializeMap,
+        hooks: &'h H,
+        actions: OnMapEntryActions,
+    ) -> Self {
         Self {
             serialize_map,
             hooks,
@@ -70,30 +75,28 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         let mut replace_entry = false;
         let mut replace_value: Option<PrimitiveValue> = None;
 
-        self.actions.retain_mut(|a| {
-            match a {
-                MapEntryAction::Retain(k) => {
-                    let matches = k.matches_path_key(&map_key);
-                    if matches {
-                        retain_entry = true;
-                    }
-                    !matches
+        self.actions.retain_mut(|a| match a {
+            MapEntryAction::Retain(k) => {
+                let matches = k.matches_path_key(&map_key);
+                if matches {
+                    retain_entry = true;
                 }
-                MapEntryAction::Skip(k) => {
-                    let matches = k.matches_path_key(&map_key);
-                    if matches {
-                        skip_entry = true;
-                    }
-                    !matches
+                !matches
+            }
+            MapEntryAction::Skip(k) => {
+                let matches = k.matches_path_key(&map_key);
+                if matches {
+                    skip_entry = true;
                 }
-                MapEntryAction::Insert(k, v) => {
-                    let matches = k.matches_path_key(&map_key);
-                    if matches {
-                        replace_entry = true;
-                        replace_value = v.take();
-                    }
-                    !matches
+                !matches
+            }
+            MapEntryAction::Insert(k, v) => {
+                let matches = k.matches_path_key(&map_key);
+                if matches {
+                    replace_entry = true;
+                    replace_value = v.take();
                 }
+                !matches
             }
         });
 

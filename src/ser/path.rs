@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Write};
 
-use super::hooks::PrimitiveValue;
+use crate::ser::PrimitiveValue;
 
 #[derive(Debug, Default)]
 pub struct Path {

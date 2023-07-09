@@ -5,6 +5,7 @@ use serde::{Serialize, Serializer};
 use super::hooks::{Hooks, MapScope, ValueScope};
 use super::path::{Path, PathSegment};
 use super::wrapper;
+use super::Value;
 
 pub struct SerializableWithContext<'s, T: Serialize + ?Sized, H: Hooks> {
     serializable: &'s T,
@@ -55,10 +56,10 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
         scope.into_actions()
     }
 
-    fn on_value<S: Serializer>(&self, serializer: S) -> wrapper::OnValueAction<S> {
+    fn on_value<S: Serializer>(&self, serializer: S, value: Value) -> wrapper::OnValueAction<S> {
         let path = &self.inner.borrow().path;
 
-        let mut scope = ValueScope::new(path, serializer);
+        let mut scope = ValueScope::new(path, serializer, value);
         self.inner.borrow().hooks.on_value(&mut scope);
         scope.into_action()
     }

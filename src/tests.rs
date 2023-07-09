@@ -14,6 +14,7 @@ struct EmployeePayload {
     employee: Employee,
     // need to add this one field
     department_name: String,
+    char_field: char,
 }
 
 #[test]
@@ -28,6 +29,7 @@ fn test_payload() {
     let payload = EmployeePayload {
         employee,
         department_name: "Sales".into(),
+        char_field: 'c',
     };
 
     struct Hks {
@@ -43,14 +45,22 @@ fn test_payload() {
         }
 
         fn on_map(&self, map: &mut ser::MapScope) {
-            println!("==== MAP at {}, len={:?}", map.path().to_string(), map.map_len());
+            println!(
+                "==== MAP at {}, len={:?}",
+                map.path().to_string(),
+                map.map_len()
+            );
             // map.skip_entry("department_id");
             // map.retain_entry("department_id")
             //     .insert_entry("department_name", "foo");
         }
 
         fn on_value<S: Serializer>(&self, value: &mut ser::ValueScope<S>) {
-            println!("==== VALUE at {}", value.path().to_string());
+            println!(
+                "==== VALUE at {}, {:?}",
+                value.path().to_string(),
+                value.value()
+            );
             value.replace("IT");
         }
     }

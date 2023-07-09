@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 mod map_wrapper;
 mod struct_wrapper;
 
-use super::hooks::MapEntryAction;
+use super::hooks;
 use crate::ser::path::PathSegment;
 
 use map_wrapper::SerializeMapWrapper;
@@ -15,17 +15,16 @@ pub enum OnValueAction<S: Serializer> {
     ValueReplaced(Result<S::Ok, S::Error>),
 }
 
-pub type OnMapEntryActions = SmallVec<[MapEntryAction; 8]>;
+pub type OnMapEntryActions = SmallVec<[hooks::MapEntryAction; 8]>;
 
 pub trait SerializerWrapperHooks {
-
     fn path_push(&self, segment: PathSegment);
     fn path_pop(&self);
 
     fn on_map(&self, len: Option<usize>) -> OnMapEntryActions;
 
     //TODO primitive values can be passed in as an enum, similar to MapKey in Path
-    fn on_value<S: Serializer>(&self, serializer: S) -> OnValueAction<S>;
+    fn on_value<S: Serializer>(&self, serializer: S, value: crate::ser::Value) -> OnValueAction<S>;
 }
 
 pub(super) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
@@ -39,6 +38,20 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializerWrapper<'h, S, H> {
     }
 }
 
+macro_rules! wrap_primitive_serialize {
+    ($fn:ident, $type:ty) => {
+        fn $fn(self, v: $type) -> Result<Self::Ok, Self::Error> {
+            match self
+                .hooks
+                .on_value(self.serializer, crate::ser::Value::Primitive(v.into()))
+            {
+                OnValueAction::ContinueSerialization(s) => s.$fn(v),
+                OnValueAction::ValueReplaced(r) => r,
+            }
+        }
+    };
+}
+
 impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrapper<'h, S, H> {
     type Ok = S::Ok;
     type Error = S::Error;
@@ -50,63 +63,19 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     type SerializeStruct = SerializeStructWrapper<'h, S, H>;
     type SerializeStructVariant = S::SerializeStructVariant;
 
-    fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_bool(v)
-    }
-
-    fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_i8(v)
-    }
-
-    fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_i16(v)
-    }
-
-    fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        println!("serialize_i32 {v}");
-        self.serializer.serialize_i32(v)
-    }
-
-    fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_i64(v)
-    }
-
-    fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_u8(v)
-    }
-
-    fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_u16(v)
-    }
-
-    fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_u32(v)
-    }
-
-    fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_u64(v)
-    }
-
-    fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_f32(v)
-    }
-
-    fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_f64(v)
-    }
-
-    fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_char(v)
-    }
-
-    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        //TODO make conditional (only for when it's a map key?)
-        //TODO impl for all serialize_ calls
-        match self.hooks.on_value(self.serializer) {
-            OnValueAction::ContinueSerialization(s) => s.serialize_str(v),
-            OnValueAction::ValueReplaced(r) => r,
-        }
-    }
+    wrap_primitive_serialize!(serialize_bool, bool);
+    wrap_primitive_serialize!(serialize_i8, i8);
+    wrap_primitive_serialize!(serialize_i16, i16);
+    wrap_primitive_serialize!(serialize_i32, i32);
+    wrap_primitive_serialize!(serialize_i64, i64);
+    wrap_primitive_serialize!(serialize_u8, u8);
+    wrap_primitive_serialize!(serialize_u16, u16);
+    wrap_primitive_serialize!(serialize_u32, u32);
+    wrap_primitive_serialize!(serialize_u64, u64);
+    wrap_primitive_serialize!(serialize_f32, f32);
+    wrap_primitive_serialize!(serialize_f64, f64);
+    wrap_primitive_serialize!(serialize_char, char);
+    wrap_primitive_serialize!(serialize_str, &str);
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         self.serializer.serialize_bytes(v)
@@ -285,7 +254,11 @@ mod tests {
             todo!()
         }
 
-        fn on_value<S: Serializer>(&self, serializer: S) -> OnValueAction<S> {
+        fn on_value<S: Serializer>(
+            &self,
+            _serializer: S,
+            _value: crate::ser::Value,
+        ) -> OnValueAction<S> {
             todo!()
         }
     }
