@@ -19,10 +19,7 @@ impl Path {
 
 impl ToString for Path {
     fn to_string(&self) -> String {
-        self.segments.iter().fold(String::new(), |mut acc, item| {
-            if !acc.is_empty() {
-                acc.push('.');
-            }
+        self.segments.iter().fold("$".to_string(), |mut acc, item| {
             write!(&mut acc, "{item}").expect("path concat failed");
             acc
         })
@@ -115,8 +112,11 @@ impl PathMapKey {
 
 impl Display for PathMapKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //TODO proper formatting
-        f.write_fmt(format_args!("{:?}", self))
+        if let Some(value) = self.primitive_value() {
+            Display::fmt(&value, f)
+        } else {
+            Display::fmt(&self.index(), f)
+        }
     }
 }
 
@@ -129,8 +129,11 @@ pub enum PathSegment {
 
 impl Display for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //TODO proper formatting
-        f.write_fmt(format_args!("{:?}", self))
+        match self {
+            PathSegment::MapKey(key) => f.write_fmt(format_args!("[{key}]")),
+            PathSegment::StructField(field_name) => f.write_fmt(format_args!(".{field_name}")),
+            PathSegment::SeqIndex(index) => f.write_fmt(format_args!("[{index}]")),
+        }
     }
 }
 

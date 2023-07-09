@@ -43,14 +43,14 @@ fn test_payload() {
         }
 
         fn on_map(&self, map: &mut ser::MapScope) {
-            println!("==== MAP {} {:?}", map.path().to_string(), map.map_len());
+            println!("==== MAP at {}, len={:?}", map.path().to_string(), map.map_len());
             // map.skip_entry("department_id");
-            map.retain_entry("department_id")
-                .insert_entry("department_name", "foo");
+            // map.retain_entry("department_id")
+            //     .insert_entry("department_name", "foo");
         }
 
         fn on_value<S: Serializer>(&self, value: &mut ser::ValueScope<S>) {
-            println!("==== VALUE {}", value.path().to_string());
+            println!("==== VALUE at {}", value.path().to_string());
             value.replace("IT");
         }
     }

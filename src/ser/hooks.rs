@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Display};
+
 use serde::{Serialize, Serializer};
 
 use crate::ser::Path;
@@ -71,6 +73,26 @@ impl Serialize for PrimitiveValue {
             PrimitiveValue::F64(v) => v.serialize(serializer),
             PrimitiveValue::Char(v) => v.serialize(serializer),
             PrimitiveValue::Str(v) => v.serialize(serializer),
+        }
+    }
+}
+
+impl Display for PrimitiveValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrimitiveValue::Bool(v) => Display::fmt(v, f),
+            PrimitiveValue::I8(v) => Display::fmt(v, f),
+            PrimitiveValue::I16(v) => Display::fmt(v, f),
+            PrimitiveValue::I32(v) => Display::fmt(v, f),
+            PrimitiveValue::I64(v) => Display::fmt(v, f),
+            PrimitiveValue::U8(v) => Display::fmt(v, f),
+            PrimitiveValue::U16(v) => Display::fmt(v, f),
+            PrimitiveValue::U32(v) => Display::fmt(v, f),
+            PrimitiveValue::U64(v) => Display::fmt(v, f),
+            PrimitiveValue::F32(v) => Display::fmt(v, f),
+            PrimitiveValue::F64(v) => Display::fmt(v, f),
+            PrimitiveValue::Char(c) => f.write_fmt(format_args!("'{c}'")),
+            PrimitiveValue::Str(s) => f.write_fmt(format_args!("\"{s}\"")),
         }
     }
 }
