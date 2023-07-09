@@ -48,7 +48,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
         self.inner.borrow_mut().path.pop_segment();
     }
 
-    fn on_map(&self, len: Option<usize>) -> wrapper::OnMapActions {
+    fn on_map(&self, len: Option<usize>) -> wrapper::OnMapEntryActions {
         let path = &self.inner.borrow().path;
         let mut scope = MapScope::new(path, len);
         self.inner.borrow().hooks.on_map(&mut scope);

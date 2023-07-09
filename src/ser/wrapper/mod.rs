@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 mod map_wrapper;
 mod struct_wrapper;
 
-use super::hooks::MapAction;
+use super::hooks::MapEntryAction;
 use crate::ser::path::PathSegment;
 
 use map_wrapper::SerializeMapWrapper;
@@ -15,14 +15,14 @@ pub enum OnValueAction<S: Serializer> {
     ValueReplaced(Result<S::Ok, S::Error>),
 }
 
-pub type OnMapActions = SmallVec<[MapAction; 8]>;
+pub type OnMapEntryActions = SmallVec<[MapEntryAction; 8]>;
 
 pub trait SerializerWrapperHooks {
 
     fn path_push(&self, segment: PathSegment);
     fn path_pop(&self);
 
-    fn on_map(&self, len: Option<usize>) -> OnMapActions;
+    fn on_map(&self, len: Option<usize>) -> OnMapEntryActions;
 
     //TODO primitive values can be passed in as an enum, similar to MapKey in Path
     fn on_value<S: Serializer>(&self, serializer: S) -> OnValueAction<S>;
@@ -281,7 +281,7 @@ mod tests {
         //     MockHooks::before_serialize(self)
         // }
 
-        fn on_map(&self, _len: Option<usize>) -> OnMapActions {
+        fn on_map(&self, _len: Option<usize>) -> OnMapEntryActions {
             todo!()
         }
 

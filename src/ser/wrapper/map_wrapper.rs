@@ -3,28 +3,28 @@ use std::{cell::Cell, fmt::Display};
 use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
-use super::{SerializableWithHooks, SerializerWrapperHooks, OnMapActions};
+use super::{OnMapEntryActions, SerializableWithHooks, SerializerWrapperHooks};
 use crate::ser::{
-    hooks::{MapAction, MapKeySelector, PrimitiveValue},
+    hooks::{MapEntryAction, MapKeySelector, PrimitiveValue},
     path::PathMapKey,
 };
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_map: S::SerializeMap,
     hooks: &'h H,
-    actions: OnMapActions,
+    actions: OnMapEntryActions,
+    have_retains: bool,
     entry_index: Cell<usize>,
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H> {
-    pub(super) fn new(
-        serialize_map: S::SerializeMap,
-        hooks: &'h H,
-        actions: OnMapActions,
-    ) -> Self {
+    pub(super) fn new(serialize_map: S::SerializeMap, hooks: &'h H, actions: OnMapEntryActions) -> Self {
         Self {
             serialize_map,
             hooks,
+            have_retains: actions
+                .iter()
+                .any(|a| matches!(a, MapEntryAction::Retain(_))),
             actions,
             entry_index: Cell::new(0),
         }
@@ -65,37 +65,39 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         println!("serialize_entry");
         let map_key = MapKeyCapture::capture(self.entry_index.get(), key);
 
-        let mut have_retains = false;
         let mut retain_entry = false;
         let mut skip_entry = false;
         let mut replace_entry = false;
         let mut replace_value: Option<PrimitiveValue> = None;
-        self.actions.retain_mut(|a| match a {
-            MapAction::RetainEntry(k) => {
-                have_retains = true;
-                if k.matches_path_key(&map_key) {
-                    retain_entry = true;
+
+        self.actions.retain_mut(|a| {
+            match a {
+                MapEntryAction::Retain(k) => {
+                    let matches = k.matches_path_key(&map_key);
+                    if matches {
+                        retain_entry = true;
+                    }
+                    !matches
                 }
-                true
-            }
-            MapAction::SkipEntry(k) => {
-                if k.matches_path_key(&map_key) {
-                    skip_entry = true;
+                MapEntryAction::Skip(k) => {
+                    let matches = k.matches_path_key(&map_key);
+                    if matches {
+                        skip_entry = true;
+                    }
+                    !matches
                 }
-                true
-            }
-            MapAction::InsertEntry(k, v) => {
-                if k.matches_path_key(&map_key) {
-                    replace_entry = true;
-                    replace_value = v.take();
-                    false
-                } else {
-                    true
+                MapEntryAction::Insert(k, v) => {
+                    let matches = k.matches_path_key(&map_key);
+                    if matches {
+                        replace_entry = true;
+                        replace_value = v.take();
+                    }
+                    !matches
                 }
             }
         });
 
-        if have_retains && !retain_entry {
+        if self.have_retains && !retain_entry {
             skip_entry = true;
         }
 
@@ -128,7 +130,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
         for a in self.actions {
-            if let MapAction::InsertEntry(MapKeySelector::ByValue(k), v) = a {
+            if let MapEntryAction::Insert(MapKeySelector::ByValue(k), v) = a {
                 self.serialize_map.serialize_entry(
                     &k,
                     &SerializableWithHooks {
@@ -137,6 +139,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                     },
                 )?
             }
+            //TODO else return error - entry not found
         }
 
         self.serialize_map.end()

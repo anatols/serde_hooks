@@ -4,7 +4,7 @@ use crate::ser::Path;
 
 use super::{
     path::PathMapKey,
-    wrapper::{OnMapActions, OnValueAction},
+    wrapper::{OnMapEntryActions, OnValueAction},
 };
 
 #[derive(Debug)]
@@ -103,17 +103,17 @@ pub enum Value {
 
 //TODO does it need to be pub?
 #[derive(Debug)]
-pub enum MapAction {
-    RetainEntry(MapKeySelector),
-    SkipEntry(MapKeySelector),
-    InsertEntry(MapKeySelector, Option<PrimitiveValue>),
+pub enum MapEntryAction {
+    Retain(MapKeySelector),
+    Skip(MapKeySelector),
+    Insert(MapKeySelector, Option<PrimitiveValue>),
 }
 
 //TODO move to a submodule
 pub struct MapScope<'p> {
     path: &'p Path,
     map_len: Option<usize>,
-    actions: OnMapActions,
+    actions: OnMapEntryActions,
 }
 
 impl<'p> MapScope<'p> {
@@ -125,7 +125,7 @@ impl<'p> MapScope<'p> {
         }
     }
 
-    pub(crate) fn into_actions(self) -> OnMapActions {
+    pub(crate) fn into_actions(self) -> OnMapEntryActions {
         self.actions
     }
 
@@ -138,28 +138,29 @@ impl<'p> MapScope<'p> {
     }
 
     pub fn retain_entry(&mut self, key: impl Into<MapKeySelector>) -> &mut Self {
-        self.actions.push(MapAction::RetainEntry(key.into()));
+        self.actions.push(MapEntryAction::Retain(key.into()));
         self
     }
 
     pub fn skip_entry(&mut self, key: impl Into<MapKeySelector>) -> &mut Self {
-        self.actions.push(MapAction::SkipEntry(key.into()));
+        self.actions.push(MapEntryAction::Skip(key.into()));
         self
     }
 
     //TODO 'insert after'?
+    //TODO should we have a 'replace' that will only replace, but not insert?
     pub fn insert_entry(
         &mut self,
         key: impl Into<MapKeySelector>,
         value: impl Into<PrimitiveValue>,
     ) -> &mut Self {
         self.actions
-            .push(MapAction::InsertEntry(key.into(), Some(value.into())));
+            .push(MapEntryAction::Insert(key.into(), Some(value.into())));
         self
     }
 
     pub fn insert_key(&mut self, key: impl Into<MapKeySelector>) -> &mut Self {
-        self.actions.push(MapAction::InsertEntry(key.into(), None));
+        self.actions.push(MapEntryAction::Insert(key.into(), None));
         self
     }
 }
