@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Mutex};
 
 use serde::{
     ser::{Error, SerializeStruct},
@@ -125,13 +125,32 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
         T: Serialize,
     {
         match key {
-            Cow::Borrowed(k) => self.serialize_struct.serialize_field(k, value),
-            Cow::Owned(k) => {
-                // static 
+            Cow::Borrowed(static_key) => self.serialize_struct.serialize_field(static_key, value),
+            Cow::Owned(string_key) => {
+                static KEYS: Mutex<Vec<Box<str>>> = Mutex::new(vec![]);
 
-                // self.serialize_struct.serialize_field(k, value);
-                todo!()
-            },
+                let mut keys = KEYS.lock().unwrap();
+                let maybe_key = keys.iter().find(|k| ***k == string_key);
+
+                // Boxes can move in the vector, but where they point remains in place until the end
+                // of the program because we never delete. For all practical purposes it is 'static,
+                // so safe to transmute here.
+                let static_key: &'static str = match maybe_key {
+                    Some(boxed_key) => unsafe {
+                        std::mem::transmute::<&str, &'static str>(boxed_key.as_ref())
+                    },
+                    None => {
+                        // This is obviously "leaking" memory on each new field, but hey, how many of those
+                        // renamed fields are you planning to have?
+                        keys.push(string_key.clone().into_boxed_str());
+                        unsafe {
+                            std::mem::transmute::<&str, &'static str>(keys.last().unwrap().as_ref())
+                        }
+                    }
+                };
+
+                self.serialize_struct.serialize_field(static_key, value)
+            }
         }
     }
 }

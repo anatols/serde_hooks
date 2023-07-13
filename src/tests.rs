@@ -73,6 +73,8 @@ fn test_payload() {
                 st.path().to_string(),
                 st.struct_len()
             );
+
+            st.rename_field("has_stock_options", "is_the_boss".to_string());
         }
 
         fn on_map_key<S: Serializer>(&self, map_key: &mut ser::ValueScope<S>) {
