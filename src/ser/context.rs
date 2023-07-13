@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Serialize, Serializer};
 
-use super::hooks::{Hooks, MapScope, ValueScope};
+use super::hooks::{Hooks, MapKeyScope, MapScope, ValueScope};
 use super::path::{Path, PathSegment};
 use super::wrapper;
 use super::Value;
@@ -27,9 +27,11 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, 
         S: Serializer,
     {
         self.context.start();
-        let res = self
-            .serializable
-            .serialize(wrapper::SerializerWrapper::new(serializer, &self.context));
+        let res = self.serializable.serialize(wrapper::SerializerWrapper::new(
+            serializer,
+            &self.context,
+            wrapper::SerializableKind::Value,
+        ));
         self.context.end();
         res
     }
@@ -54,6 +56,14 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
         let mut scope = MapScope::new(path, len);
         self.inner.borrow().hooks.on_map(&mut scope);
         scope.into_actions()
+    }
+
+    fn on_map_key<S: Serializer>(&self, serializer: S, value: Value) -> wrapper::OnValueAction<S> {
+        let path = &self.inner.borrow().path;
+
+        let mut scope = MapKeyScope::new(path, serializer, value);
+        self.inner.borrow().hooks.on_map_key(&mut scope);
+        scope.into_action()
     }
 
     fn on_value<S: Serializer>(&self, serializer: S, value: Value) -> wrapper::OnValueAction<S> {

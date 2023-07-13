@@ -1,4 +1,4 @@
-use serde::{ser::Error, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use smallvec::SmallVec;
 
 mod map_wrapper;
@@ -23,28 +23,42 @@ pub trait SerializerWrapperHooks {
 
     fn on_map(&self, len: Option<usize>) -> OnMapEntryActions;
 
-    //TODO primitive values can be passed in as an enum, similar to MapKey in Path
+    fn on_map_key<S: Serializer>(&self, serializer: S, key: crate::ser::Value) -> OnValueAction<S>;
+
     fn on_value<S: Serializer>(&self, serializer: S, value: crate::ser::Value) -> OnValueAction<S>;
 }
 
 pub(super) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
     serializer: S,
     hooks: &'h H,
+    kind: SerializableKind,
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializerWrapper<'h, S, H> {
-    pub(super) fn new(serializer: S, hooks: &'h H) -> Self {
-        Self { serializer, hooks }
+    pub(super) fn new(serializer: S, hooks: &'h H, kind: SerializableKind) -> Self {
+        Self {
+            serializer,
+            hooks,
+            kind,
+        }
     }
 }
 
 macro_rules! wrap_primitive_serialize {
     ($fn:ident, $type:ty) => {
         fn $fn(self, v: $type) -> Result<Self::Ok, Self::Error> {
-            match self.hooks.on_value(
-                self.serializer,
-                crate::ser::Value::Primitive(v.to_owned().into()),
-            ) {
+            let value_action = match self.kind {
+                SerializableKind::Value => self.hooks.on_value(
+                    self.serializer,
+                    crate::ser::Value::Primitive(v.to_owned().into()),
+                ),
+                SerializableKind::MapKey => self.hooks.on_map_key(
+                    self.serializer,
+                    crate::ser::Value::Primitive(v.to_owned().into()),
+                ),
+            };
+
+            match value_action {
                 OnValueAction::ContinueSerialization(s) => s.$fn(v),
                 OnValueAction::ValueReplaced(r) => r,
             }
@@ -195,9 +209,16 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum SerializableKind {
+    Value,
+    MapKey,
+}
+
 pub struct SerializableWithHooks<'s, 'h, T: Serialize + ?Sized, H: SerializerWrapperHooks> {
     serializable: &'s T,
     hooks: &'h H,
+    kind: SerializableKind,
 }
 
 impl<T: Serialize + ?Sized, H: SerializerWrapperHooks> Serialize
@@ -208,7 +229,7 @@ impl<T: Serialize + ?Sized, H: SerializerWrapperHooks> Serialize
         S: Serializer,
     {
         self.serializable
-            .serialize(SerializerWrapper::new(serializer, self.hooks))
+            .serialize(SerializerWrapper::new(serializer, self.hooks, self.kind))
     }
 }
 
@@ -261,6 +282,14 @@ mod tests {
         ) -> OnValueAction<S> {
             todo!()
         }
+
+        fn on_map_key<S: Serializer>(
+            &self,
+            _serializer: S,
+            _key: crate::ser::Value,
+        ) -> OnValueAction<S> {
+            todo!()
+        }
     }
 
     #[test]
@@ -303,6 +332,7 @@ mod tests {
         let wrapped = SerializableWithHooks {
             serializable: &s,
             hooks: &hooks,
+            kind: SerializableKind::Value,
         };
 
         print!("{}", serde_json::to_string_pretty(&wrapped).unwrap());

@@ -1,6 +1,6 @@
 use serde::{ser::Error, Serialize, Serializer};
 
-use super::{PathSegment, SerializableWithHooks, SerializerWrapperHooks};
+use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
 pub struct SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_struct: S::SerializeStruct,
@@ -36,6 +36,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
         let s = SerializableWithHooks {
             serializable: value,
             hooks: self.hooks,
+            kind: SerializableKind::Value,
         };
         let res = self.serialize_struct.serialize_field(key, &s);
 

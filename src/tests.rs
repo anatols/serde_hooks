@@ -53,6 +53,17 @@ fn test_payload() {
             // map.skip_entry("department_id");
             // map.retain_entry("department_id")
             //     .insert_entry("department_name", "foo");
+            map.rename_key("department_name", "renamed_department_name");
+            map.rename_key("renamed_department_name", "renamed_again_department_name");
+        }
+
+        fn on_map_key<S: Serializer>(&self, map_key: &mut ser::ValueScope<S>) {
+            println!(
+                "==== MAP KEY at {}, {:?}",
+                map_key.path().to_string(),
+                map_key.value()
+            );
+            // map_key.replace("IT");
         }
 
         fn on_value<S: Serializer>(&self, value: &mut ser::ValueScope<S>) {
@@ -61,7 +72,7 @@ fn test_payload() {
                 value.path().to_string(),
                 value.value()
             );
-            value.replace("IT");
+            // value.replace("IT");
         }
     }
 

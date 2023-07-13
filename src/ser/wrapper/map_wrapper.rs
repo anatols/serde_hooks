@@ -3,7 +3,7 @@ use std::{cell::Cell, fmt::Display};
 use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
-use super::{OnMapEntryActions, SerializableWithHooks, SerializerWrapperHooks};
+use super::{OnMapEntryActions, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 use crate::ser::{
     hooks::{MapEntryAction, MapKeySelector},
     path::PathMapKey,
@@ -68,37 +68,65 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         V: Serialize,
     {
         println!("serialize_entry");
-        let map_key = MapKeyCapture::capture(self.entry_index.get(), key);
+        let mut map_key = MapKeyCapture::capture(self.entry_index.get(), key);
 
         let mut retain_entry = false;
         let mut skip_entry = false;
         let mut replace_entry = false;
-        let mut replace_value: Option<PrimitiveValue> = None;
+        let mut replacement_value: Option<PrimitiveValue> = None;
+        let mut replacement_key: Option<PrimitiveValue> = None;
+        let mut error: Option<Self::Error> = None;
 
-        self.actions.retain_mut(|a| match a {
-            MapEntryAction::Retain(k) => {
-                let matches = k.matches_path_key(&map_key);
-                if matches {
-                    retain_entry = true;
-                }
-                !matches
+        self.actions.retain_mut(|a| {
+            if error.is_some() {
+                return true;
             }
-            MapEntryAction::Skip(k) => {
-                let matches = k.matches_path_key(&map_key);
-                if matches {
-                    skip_entry = true;
+            match a {
+                MapEntryAction::Retain(k) => {
+                    let matches = k.matches_path_key(&map_key);
+                    if matches {
+                        retain_entry = true;
+                    }
+                    !matches
                 }
-                !matches
-            }
-            MapEntryAction::Insert(k, v) => {
-                let matches = k.matches_path_key(&map_key);
-                if matches {
-                    replace_entry = true;
-                    replace_value = v.take();
+                MapEntryAction::Skip(k) => {
+                    let matches = k.matches_path_key(&map_key);
+                    if matches {
+                        skip_entry = true;
+                    }
+                    !matches
                 }
-                !matches
+                MapEntryAction::Add(k, _) => {
+                    let matches = k.matches_path_key(&map_key);
+                    if matches {
+                        error = Some(serde::ser::Error::custom(format!(
+                            "cannot add key {k}, the key is already present in the map"
+                        )));
+                    }
+                    true
+                }
+                MapEntryAction::Replace(k, v) | MapEntryAction::ReplaceOrAdd(k, v) => {
+                    let matches = k.matches_path_key(&map_key);
+                    if matches {
+                        replace_entry = true;
+                        replacement_value = v.take();
+                    }
+                    !matches
+                }
+                MapEntryAction::ReplaceKey(k, v) => {
+                    let matches = k.matches_path_key(&map_key);
+                    if matches {
+                        map_key = PathMapKey::from_index_and_primitive_value(map_key.index(), v.clone());
+                        replacement_key = Some(v.clone());
+                    }
+                    !matches
+                }
             }
         });
+
+        if let Some(err) = error {
+            return Err(err);
+        }
 
         if self.have_retains && !retain_entry {
             skip_entry = true;
@@ -107,21 +135,34 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         self.hooks.path_push(map_key.into());
 
         let res = if replace_entry {
-            self.serialize_map.serialize_entry(
-                key,
-                &SerializableWithHooks {
-                    serializable: &replace_value,
-                    hooks: self.hooks,
-                },
-            )
+            if let Some(replacement_key) = &replacement_key {
+                self.serialize_map
+                    .serialize_entry(replacement_key, &replacement_value)
+            } else {
+                self.serialize_map.serialize_entry(key, &replacement_value)
+            }
         } else if skip_entry {
             Ok(())
-        } else {
+        } else if let Some(replacement_key) = &replacement_key {
             self.serialize_map.serialize_entry(
-                key,
+                replacement_key,
                 &SerializableWithHooks {
                     serializable: value,
                     hooks: self.hooks,
+                    kind: SerializableKind::Value,
+                },
+            )
+        } else {
+            self.serialize_map.serialize_entry(
+                &SerializableWithHooks {
+                    serializable: key,
+                    hooks: self.hooks,
+                    kind: SerializableKind::MapKey,
+                },
+                &SerializableWithHooks {
+                    serializable: value,
+                    hooks: self.hooks,
+                    kind: SerializableKind::Value,
                 },
             )
         };
@@ -133,16 +174,35 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
 
     fn end(mut self) -> Result<Self::Ok, Self::Error> {
         for a in self.actions {
-            if let MapEntryAction::Insert(MapKeySelector::ByValue(k), v) = a {
-                self.serialize_map.serialize_entry(
-                    &k,
-                    &SerializableWithHooks {
-                        serializable: &v,
-                        hooks: self.hooks,
-                    },
-                )?
+            match a {
+                MapEntryAction::Add(MapKeySelector::ByValue(k), v)
+                | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByValue(k), v) => {
+                    if let Some(primitive_value) = &v {
+                        self.serialize_map.serialize_entry(&k, primitive_value)?
+                    } else {
+                        self.serialize_map.serialize_entry(
+                            &k,
+                            &SerializableWithHooks {
+                                serializable: &v,
+                                hooks: self.hooks,
+                                kind: SerializableKind::Value,
+                            },
+                        )?
+                    }
+                }
+                MapEntryAction::Add(MapKeySelector::ByIndex(k), _)
+                | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByIndex(k), _) => {
+                    return Err(serde::ser::Error::custom(format!(
+                        "cannot add entry with an index {k}, please specify key value"
+                    )));
+                }
+                MapEntryAction::Replace(k, _)
+                | MapEntryAction::Retain(k)
+                | MapEntryAction::Skip(k)
+                | MapEntryAction::ReplaceKey(k, _) => {
+                    return Err(serde::ser::Error::custom(format!("key {k} not found")));
+                }
             }
-            //TODO else return error - entry not found
         }
 
         self.serialize_map.end()

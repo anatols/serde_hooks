@@ -2,7 +2,7 @@ use std::{fmt::Display, borrow::Cow};
 
 use serde::{Serialize, Serializer};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PrimitiveValue {
     Bool(bool),
     I8(i8),

@@ -1,4 +1,7 @@
-use std::{fmt::{Debug, Display, Write}, borrow::Cow};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display, Write},
+};
 
 use crate::ser::PrimitiveValue;
 
@@ -58,6 +61,27 @@ pub enum PathMapKey {
 }
 
 impl PathMapKey {
+    pub(crate) fn from_index_and_primitive_value(
+        index: usize,
+        primitive_value: PrimitiveValue,
+    ) -> Self {
+        match primitive_value {
+            PrimitiveValue::Bool(v) => PathMapKey::Bool(index, v),
+            PrimitiveValue::I8(v) => PathMapKey::I8(index, v),
+            PrimitiveValue::I16(v) => PathMapKey::I16(index, v),
+            PrimitiveValue::I32(v) => PathMapKey::I32(index, v),
+            PrimitiveValue::I64(v) => PathMapKey::I64(index, v),
+            PrimitiveValue::U8(v) => PathMapKey::U8(index, v),
+            PrimitiveValue::U16(v) => PathMapKey::U16(index, v),
+            PrimitiveValue::U32(v) => PathMapKey::U32(index, v),
+            PrimitiveValue::U64(v) => PathMapKey::U64(index, v),
+            PrimitiveValue::F32(v) => PathMapKey::F32(index, v),
+            PrimitiveValue::F64(v) => PathMapKey::F64(index, v),
+            PrimitiveValue::Char(v) => PathMapKey::Char(index, v),
+            PrimitiveValue::Str(v) => PathMapKey::Str(index, v),
+        }
+    }
+
     pub(crate) fn index(&self) -> usize {
         match self {
             PathMapKey::Bool(index, _)
