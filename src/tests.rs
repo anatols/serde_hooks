@@ -9,27 +9,36 @@ struct Employee {
 }
 
 #[derive(Serialize)]
+struct Compensation {
+    salary: f64,
+    has_stock_options: bool,
+}
+
+#[derive(Serialize)]
 struct EmployeePayload {
     #[serde(flatten)]
     employee: Employee,
     // need to add this one field
     department_name: String,
     char_field: char,
+    compensation: Compensation,
 }
 
 #[test]
 fn test_payload() {
     use crate::ser;
 
-    let employee = Employee {
-        name: "John Doe".into(),
-        department_id: 10,
-    };
-
     let payload = EmployeePayload {
-        employee,
+        employee: Employee {
+            name: "John Doe".into(),
+            department_id: 10,
+        },
         department_name: "Sales".into(),
         char_field: 'c',
+        compensation: Compensation {
+            salary: 1_000_000.99,
+            has_stock_options: true,
+        },
     };
 
     struct Hks {
@@ -57,6 +66,15 @@ fn test_payload() {
             map.rename_key("renamed_department_name", "renamed_again_department_name");
         }
 
+        fn on_struct(&self, st: &mut ser::StructScope) {
+            println!(
+                "==== STRUCT {} at {}, len={:?}",
+                st.struct_name(),
+                st.path().to_string(),
+                st.struct_len()
+            );
+        }
+
         fn on_map_key<S: Serializer>(&self, map_key: &mut ser::ValueScope<S>) {
             println!(
                 "==== MAP KEY at {}, {:?}",
@@ -76,11 +94,11 @@ fn test_payload() {
         }
     }
 
-    println!("{}", serde_json::to_string(&payload).unwrap());
+    println!("{}", serde_json::to_string_pretty(&payload).unwrap());
 
     println!(
         "{}",
-        serde_json::to_string(&ser::hook(
+        serde_json::to_string_pretty(&ser::hook(
             &payload,
             Hks {
                 data: "BLAH".into()

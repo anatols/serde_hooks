@@ -17,11 +17,15 @@ pub enum OnValueAction<S: Serializer> {
 
 pub type OnMapEntryActions = SmallVec<[hooks::MapEntryAction; 8]>;
 
+pub type OnStructFieldActions = SmallVec<[hooks::StructFieldAction; 8]>;
+
 pub trait SerializerWrapperHooks {
     fn path_push(&self, segment: PathSegment);
     fn path_pop(&self);
 
-    fn on_map(&self, len: Option<usize>) -> OnMapEntryActions;
+    fn on_map(&self, map_len: Option<usize>) -> OnMapEntryActions;
+
+    fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> OnStructFieldActions;
 
     fn on_map_key<S: Serializer>(&self, serializer: S, key: crate::ser::Value) -> OnValueAction<S>;
 
@@ -192,9 +196,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     ) -> Result<Self::SerializeStruct, Self::Error> {
         println!("serialize_struct {name} {len}");
 
+        let actions = self.hooks.on_struct(len, name);
         self.serializer
             .serialize_struct(name, len)
-            .map(|serialize_struct| SerializeStructWrapper::new(serialize_struct, self.hooks))
+            .map(|serialize_struct| SerializeStructWrapper::new(serialize_struct, self.hooks, actions))
     }
 
     fn serialize_struct_variant(
@@ -215,6 +220,7 @@ pub enum SerializableKind {
     MapKey,
 }
 
+//TODO give this thing a constructor (or remove constructors from oher internal structs?)
 pub struct SerializableWithHooks<'s, 'h, T: Serialize + ?Sized, H: SerializerWrapperHooks> {
     serializable: &'s T,
     hooks: &'h H,
@@ -288,6 +294,14 @@ mod tests {
             _serializer: S,
             _key: crate::ser::Value,
         ) -> OnValueAction<S> {
+            todo!()
+        }
+
+        fn on_struct(
+            &self,
+            _struct_len: usize,
+            _struct_name: &'static str,
+        ) -> OnStructFieldActions {
             todo!()
         }
     }

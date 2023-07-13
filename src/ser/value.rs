@@ -3,6 +3,7 @@ use std::{fmt::Display, borrow::Cow};
 use serde::{Serialize, Serializer};
 
 #[derive(Debug, Clone, PartialEq)]
+//TODO should this include None, Unit, UnitStruct?
 pub enum PrimitiveValue {
     Bool(bool),
     I8(i8),

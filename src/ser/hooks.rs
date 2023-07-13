@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+};
 
 use serde::{Serialize, Serializer};
 
@@ -6,7 +9,7 @@ use crate::ser::Path;
 
 use super::{
     path::PathMapKey,
-    wrapper::{OnMapEntryActions, OnValueAction},
+    wrapper::{OnMapEntryActions, OnStructFieldActions, OnValueAction},
     PrimitiveValue, Value,
 };
 
@@ -25,6 +28,9 @@ pub trait Hooks {
     fn on_map(&self, _map: &mut MapScope) {}
 
     fn on_map_key<S: Serializer>(&self, _map_key: &mut MapKeyScope<S>) {}
+
+    fn on_struct(&self, _st: &mut StructScope) {}
+
     fn on_value<S: Serializer>(&self, _value: &mut ValueScope<S>) {}
 }
 
@@ -51,7 +57,6 @@ impl Display for MapKeySelector {
         }
     }
 }
-
 
 impl<T: Into<PrimitiveValue>> From<T> for MapKeySelector {
     fn from(value: T) -> Self {
@@ -131,29 +136,36 @@ impl<'p> MapScope<'p> {
     pub fn add_or_replace_entry(
         &mut self,
         key: impl Into<MapKeySelector>,
-        value: impl Into<PrimitiveValue>,
+        new_value: impl Into<PrimitiveValue>,
     ) -> &mut Self {
-        self.actions
-            .push(MapEntryAction::ReplaceOrAdd(key.into(), Some(value.into())));
+        self.actions.push(MapEntryAction::ReplaceOrAdd(
+            key.into(),
+            Some(new_value.into()),
+        ));
         self
     }
 
-    pub fn add_or_replace_entry_on_serialize(&mut self, key: impl Into<MapKeySelector>) -> &mut Self {
-        self.actions.push(MapEntryAction::ReplaceOrAdd(key.into(), None));
-        self
-    }
-
-    pub fn replace_entry(
+    pub fn add_or_replace_entry_on_serialize(
         &mut self,
         key: impl Into<MapKeySelector>,
-        value: impl Into<PrimitiveValue>,
     ) -> &mut Self {
         self.actions
-            .push(MapEntryAction::Replace(key.into(), Some(value.into())));
+            .push(MapEntryAction::ReplaceOrAdd(key.into(), None));
         self
     }
 
-    pub fn replace_entry_on_serialize(&mut self, key: impl Into<MapKeySelector>) -> &mut Self {
+    pub fn replace_value(
+        &mut self,
+        key: impl Into<MapKeySelector>,
+        new_value: impl Into<PrimitiveValue>,
+    ) -> &mut Self {
+        self.actions
+            .push(MapEntryAction::Replace(key.into(), Some(new_value.into())));
+        self
+    }
+
+    //TODO is this needed at all?
+    pub fn replace_value_on_serialize(&mut self, key: impl Into<MapKeySelector>) -> &mut Self {
         self.actions.push(MapEntryAction::Replace(key.into(), None));
         self
     }
@@ -168,10 +180,85 @@ impl<'p> MapScope<'p> {
         self
     }
 
+    //TODO play better with cows, no need to do to_owned all for &'static str
     pub fn rename_key(&mut self, key: &str, new_key: &str) -> &mut Self {
         self.actions.push(MapEntryAction::ReplaceKey(
             key.to_owned().into(),
             new_key.to_owned().into(),
+        ));
+        self
+    }
+}
+
+#[derive(Debug)]
+pub enum StructFieldAction {
+    Retain(Cow<'static, str>),
+    Skip(Cow<'static, str>),
+    Rename(Cow<'static, str>, Cow<'static, str>),
+    ReplaceValue(Cow<'static, str>, PrimitiveValue),
+}
+
+pub struct StructScope<'p> {
+    path: &'p Path,
+    struct_len: usize,
+    struct_name: &'static str,
+    actions: OnStructFieldActions,
+}
+
+impl<'p> StructScope<'p> {
+    pub(crate) fn new(path: &'p Path, struct_len: usize, struct_name: &'static str) -> Self {
+        Self {
+            path,
+            struct_len,
+            struct_name,
+            actions: Default::default(),
+        }
+    }
+
+    pub(crate) fn into_actions(self) -> OnStructFieldActions {
+        self.actions
+    }
+
+    pub fn path(&self) -> &Path {
+        self.path
+    }
+
+    pub fn struct_len(&self) -> usize {
+        self.struct_len
+    }
+
+    pub fn struct_name(&self) -> &'static str {
+        self.struct_name
+    }
+
+    pub fn retain_field<K: Into<Cow<'static, str>>>(&mut self, key: K) -> &mut Self {
+        self.actions.push(StructFieldAction::Retain(key.into()));
+        self
+    }
+
+    pub fn skip_field<K: Into<Cow<'static, str>>>(&mut self, key: K) -> &mut Self {
+        self.actions.push(StructFieldAction::Skip(key.into()));
+        self
+    }
+
+    pub fn rename_field<K: Into<Cow<'static, str>>, N: Into<Cow<'static, str>>>(
+        &mut self,
+        key: K,
+        new_key: N,
+    ) -> &mut Self {
+        self.actions
+            .push(StructFieldAction::Rename(key.into(), new_key.into()));
+        self
+    }
+
+    pub fn replace_value<K: Into<Cow<'static, str>>, V: Into<PrimitiveValue>>(
+        &mut self,
+        key: K,
+        new_value: V,
+    ) -> &mut Self {
+        self.actions.push(StructFieldAction::ReplaceValue(
+            key.into(),
+            new_value.into(),
         ));
         self
     }

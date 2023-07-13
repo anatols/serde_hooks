@@ -1,17 +1,37 @@
-use serde::{ser::Error, Serialize, Serializer};
+use std::borrow::Cow;
 
-use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
+use serde::{
+    ser::{Error, SerializeStruct},
+    Serialize, Serializer,
+};
+
+use crate::ser::{hooks::StructFieldAction, PrimitiveValue};
+
+use super::{
+    OnStructFieldActions, PathSegment, SerializableKind, SerializableWithHooks,
+    SerializerWrapperHooks,
+};
 
 pub struct SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_struct: S::SerializeStruct,
     hooks: &'h H,
+    actions: OnStructFieldActions,
+    have_retains: bool,
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S, H> {
-    pub(super) fn new(serialize_struct: S::SerializeStruct, hooks: &'h H) -> Self {
+    pub(super) fn new(
+        serialize_struct: S::SerializeStruct,
+        hooks: &'h H,
+        actions: OnStructFieldActions,
+    ) -> Self {
         Self {
             serialize_struct,
             hooks,
+            have_retains: actions
+                .iter()
+                .any(|a| matches!(a, StructFieldAction::Retain(_))),
+            actions,
         }
     }
 }
@@ -31,20 +51,87 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
         T: Serialize,
     {
         println!("serialize_field {key}");
+
+        let mut field_key: Cow<'static, str> = key.into();
+        let mut retain_field = false;
+        let mut skip_field = false;
+        let mut replacement_value: Option<PrimitiveValue> = None;
+
+        self.actions.retain_mut(|a| match a {
+            StructFieldAction::Retain(n) => {
+                let matches = field_key == *n;
+                if matches {
+                    retain_field = true;
+                }
+                !matches
+            }
+            StructFieldAction::Skip(n) => {
+                let matches = field_key == *n;
+                if matches {
+                    skip_field = true;
+                }
+                !matches
+            }
+            StructFieldAction::Rename(n, r) => {
+                let matches = field_key == *n;
+                if matches {
+                    field_key = r.clone();
+                }
+                !matches
+            }
+            StructFieldAction::ReplaceValue(n, v) => {
+                let matches = field_key == *n;
+                if matches {
+                    replacement_value = Some(v.clone());
+                }
+                !matches
+            }
+        });
+
+        if self.have_retains && !retain_field {
+            skip_field = true;
+        }
+
         self.hooks.path_push(PathSegment::StructField(key));
 
-        let s = SerializableWithHooks {
-            serializable: value,
-            hooks: self.hooks,
-            kind: SerializableKind::Value,
+        let res = if skip_field {
+            self.serialize_struct.skip_field(key)
+        } else {
+            let s = SerializableWithHooks {
+                serializable: value,
+                hooks: self.hooks,
+                kind: SerializableKind::Value,
+            };
+            self.serialize_maybe_renamed_field(field_key, &s)
         };
-        let res = self.serialize_struct.serialize_field(key, &s);
 
         self.hooks.path_pop();
         res
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
+        //TODO verify that no actions remain
         self.serialize_struct.end()
+    }
+}
+
+impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S, H> {
+    fn serialize_maybe_renamed_field<T: ?Sized>(
+        &mut self,
+        key: Cow<'static, str>,
+        value: &T,
+    ) -> Result<(), S::Error>
+    where
+        T: Serialize,
+    {
+        match key {
+            Cow::Borrowed(k) => self.serialize_struct.serialize_field(k, value),
+            Cow::Owned(k) => {
+                // static 
+
+                // self.serialize_struct.serialize_field(k, value);
+                todo!()
+            },
+        }
     }
 }

@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Serialize, Serializer};
 
-use super::hooks::{Hooks, MapKeyScope, MapScope, ValueScope};
+use super::hooks::{Hooks, MapKeyScope, MapScope, StructScope, ValueScope};
 use super::path::{Path, PathSegment};
 use super::wrapper;
 use super::Value;
@@ -51,10 +51,21 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
         self.inner.borrow_mut().path.pop_segment();
     }
 
-    fn on_map(&self, len: Option<usize>) -> wrapper::OnMapEntryActions {
+    fn on_map(&self, map_len: Option<usize>) -> wrapper::OnMapEntryActions {
         let path = &self.inner.borrow().path;
-        let mut scope = MapScope::new(path, len);
+        let mut scope = MapScope::new(path, map_len);
         self.inner.borrow().hooks.on_map(&mut scope);
+        scope.into_actions()
+    }
+
+    fn on_struct(
+        &self,
+        struct_len: usize,
+        struct_name: &'static str,
+    ) -> wrapper::OnStructFieldActions {
+        let path = &self.inner.borrow().path;
+        let mut scope = StructScope::new(path, struct_len, struct_name);
+        self.inner.borrow().hooks.on_struct(&mut scope);
         scope.into_actions()
     }
 
