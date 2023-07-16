@@ -96,6 +96,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
 
         let res = if skip_field {
             self.serialize_struct.skip_field(key)
+        } else if let Some(replacement_value) = replacement_value {
+            self.serialize_maybe_renamed_field(field_key, &replacement_value)
         } else {
             let s = SerializableWithHooks {
                 serializable: value,
@@ -125,7 +127,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
         T: Serialize,
     {
         // Serde expects struct fields to be `&'static str` because for structs the field
-        // names are knows at compile time. A serializer can theoretically hold on to those 
+        // names are knows at compile time. A serializer can theoretically hold on to those
         // field name references forever and expect them to be valid.
         //
         // To be able to rename a field, we thus need to somehow generate a string at
