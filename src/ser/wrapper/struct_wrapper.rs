@@ -2,12 +2,11 @@ use std::{borrow::Cow, collections::HashSet, pin::Pin, sync::Mutex};
 
 use serde::{Serialize, Serializer};
 
-use crate::ser::{hooks::StructFieldAction, HooksError, PrimitiveValue};
+use crate::ser::scope::{OnStructFieldActions, StructFieldAction};
+use crate::ser::HooksError;
+use crate::PrimitiveValue;
 
-use super::{
-    OnStructFieldActions, PathSegment, SerializableKind, SerializableWithHooks,
-    SerializerWrapperHooks,
-};
+use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
 pub struct SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_struct: S::SerializeStruct,

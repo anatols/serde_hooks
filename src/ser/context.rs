@@ -2,10 +2,11 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Serialize, Serializer};
 
-use super::hooks::{ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, ValueScope};
-use super::path::{Path, PathSegment};
+use super::scope;
 use super::wrapper;
-use super::Value;
+use super::{ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, ValueScope};
+use crate::path::{Path, PathSegment};
+use crate::Value;
 
 pub struct SerializableWithContext<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
     serializable: &'s T,
@@ -51,25 +52,21 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         self.inner.borrow_mut().path.pop_segment();
     }
 
-    fn on_map(&self, map_len: Option<usize>) -> wrapper::OnMapEntryActions {
+    fn on_map(&self, map_len: Option<usize>) -> scope::OnMapEntryActions {
         let path = &self.inner.borrow().path;
         let mut scope = MapScope::new(path, map_len);
         self.inner.borrow().hooks.on_map(&mut scope);
         scope.into_actions()
     }
 
-    fn on_struct(
-        &self,
-        struct_len: usize,
-        struct_name: &'static str,
-    ) -> wrapper::OnStructFieldActions {
+    fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> scope::OnStructFieldActions {
         let path = &self.inner.borrow().path;
         let mut scope = StructScope::new(path, struct_len, struct_name);
         self.inner.borrow().hooks.on_struct(&mut scope);
         scope.into_actions()
     }
 
-    fn on_map_key<S: Serializer>(&self, serializer: S, value: Value) -> wrapper::OnValueAction<S> {
+    fn on_map_key<S: Serializer>(&self, serializer: S, value: Value) -> scope::OnValueAction<S> {
         let path = &self.inner.borrow().path;
 
         let mut scope = MapKeyScope::new(path, serializer, value);
@@ -77,7 +74,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         scope.into_action()
     }
 
-    fn on_value<S: Serializer>(&self, serializer: S, value: Value) -> wrapper::OnValueAction<S> {
+    fn on_value<S: Serializer>(&self, serializer: S, value: Value) -> scope::OnValueAction<S> {
         let path = &self.inner.borrow().path;
 
         let mut scope = ValueScope::new(path, serializer, value);

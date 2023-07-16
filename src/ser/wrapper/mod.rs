@@ -1,38 +1,31 @@
 use serde::{Serialize, Serializer};
-use smallvec::SmallVec;
 
 mod map_wrapper;
 mod struct_wrapper;
 
-use super::hooks;
-use crate::ser::path::PathSegment;
+use crate::path::PathSegment;
 
 use map_wrapper::SerializeMapWrapper;
 use struct_wrapper::SerializeStructWrapper;
 
-pub enum OnValueAction<S: Serializer> {
-    ContinueSerialization(S),
-    ValueReplaced(Result<S::Ok, S::Error>),
-}
+use super::HooksError;
 
-pub type OnMapEntryActions = SmallVec<[hooks::MapEntryAction; 8]>;
-
-pub type OnStructFieldActions = SmallVec<[hooks::StructFieldAction; 8]>;
+use super::scope::{OnMapEntryActions, OnStructFieldActions, OnValueAction};
 
 pub trait SerializerWrapperHooks {
     fn path_push(&self, segment: PathSegment);
 
     fn path_pop(&self);
 
-    fn on_error<S: Serializer>(&self, error: hooks::HooksError) -> Result<(), S::Error>;
+    fn on_error<S: Serializer>(&self, error: HooksError) -> Result<(), S::Error>;
 
     fn on_map(&self, map_len: Option<usize>) -> OnMapEntryActions;
 
     fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> OnStructFieldActions;
 
-    fn on_map_key<S: Serializer>(&self, serializer: S, key: crate::ser::Value) -> OnValueAction<S>;
+    fn on_map_key<S: Serializer>(&self, serializer: S, key: crate::Value) -> OnValueAction<S>;
 
-    fn on_value<S: Serializer>(&self, serializer: S, value: crate::ser::Value) -> OnValueAction<S>;
+    fn on_value<S: Serializer>(&self, serializer: S, value: crate::Value) -> OnValueAction<S>;
 }
 
 pub(super) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
@@ -57,11 +50,11 @@ macro_rules! wrap_primitive_serialize {
             let value_action = match self.kind {
                 SerializableKind::Value => self.hooks.on_value(
                     self.serializer,
-                    crate::ser::Value::Primitive(v.to_owned().into()),
+                    crate::Value::Primitive(v.to_owned().into()),
                 ),
                 SerializableKind::MapKey => self.hooks.on_map_key(
                     self.serializer,
-                    crate::ser::Value::Primitive(v.to_owned().into()),
+                    crate::Value::Primitive(v.to_owned().into()),
                 ),
             };
 
@@ -241,123 +234,5 @@ impl<T: Serialize + ?Sized, H: SerializerWrapperHooks> Serialize
     {
         self.serializable
             .serialize(SerializerWrapper::new(serializer, self.hooks, self.kind))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-
-    use super::*;
-    use mockall::predicate::*;
-    use mockall::*;
-
-    mock! {
-        Hooks {
-            fn path_push(&self, segment: PathSegment);
-            fn path_pop(&self);
-            // fn before_serialize(&self) -> ValueAction;
-            // fn before_struct<S: Serializer + 'static>(&self) -> Vec<StructAction<S>>;
-        }
-    }
-
-    impl SerializerWrapperHooks for MockHooks {
-        fn path_push(&self, segment: PathSegment) {
-            MockHooks::path_push(self, segment)
-        }
-
-        fn path_pop(&self) {
-            MockHooks::path_pop(self)
-        }
-
-        // fn before_struct<S: Serializer>(&self) -> Vec<StructAction<S>> {
-        //     // MockHooks::before_struct(self)
-        //     vec![StructAction::AddOrReplaceField {
-        //         name: "field",
-        //         with: |serializer| serializer.serialize_str("fake"),
-        //     }]
-        // }
-
-        // fn before_value(&self) -> ValueAction {
-        //     MockHooks::before_serialize(self)
-        // }
-
-        fn on_map(&self, _len: Option<usize>) -> OnMapEntryActions {
-            todo!()
-        }
-
-        fn on_value<S: Serializer>(
-            &self,
-            _serializer: S,
-            _value: crate::ser::Value,
-        ) -> OnValueAction<S> {
-            todo!()
-        }
-
-        fn on_map_key<S: Serializer>(
-            &self,
-            _serializer: S,
-            _key: crate::ser::Value,
-        ) -> OnValueAction<S> {
-            todo!()
-        }
-
-        fn on_struct(
-            &self,
-            _struct_len: usize,
-            _struct_name: &'static str,
-        ) -> OnStructFieldActions {
-            todo!()
-        }
-
-        fn on_error<S: Serializer>(&self, error: hooks::HooksError) -> Result<(), S::Error> {
-            todo!()
-        }
-    }
-
-    #[test]
-    fn test() {
-        #[derive(Serialize)]
-        struct Child {
-            name: &'static str,
-        }
-
-        #[derive(Serialize)]
-        struct S {
-            field: bool,
-            // #[serde(flatten)]
-            child: Child,
-            map: HashMap<String, i32>,
-        }
-
-        let mut hooks = MockHooks::new();
-
-        hooks
-            .expect_path_push()
-            .returning(|segment| println!("### path_push {segment:?}"));
-
-        hooks
-            .expect_path_pop()
-            .returning(|| println!("### path_pop"));
-
-        // hooks
-        //     .expect_before_serialize()
-        //     .return_const(ValueAction::GoAhead);
-
-        let s = S {
-            field: true,
-            child: Child { name: "child" },
-            map: [("foo".to_string(), 123), ("bar".to_string(), 234)]
-                .into_iter()
-                .collect(),
-        };
-
-        let wrapped = SerializableWithHooks {
-            serializable: &s,
-            hooks: &hooks,
-            kind: SerializableKind::Value,
-        };
-
-        print!("{}", serde_json::to_string_pretty(&wrapped).unwrap());
     }
 }

@@ -3,7 +3,7 @@ use std::{
     fmt::{Debug, Display, Write},
 };
 
-use crate::ser::PrimitiveValue;
+use crate::PrimitiveValue;
 
 #[derive(Debug, Default)]
 pub struct Path {

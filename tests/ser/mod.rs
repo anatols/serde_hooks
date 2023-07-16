@@ -3,7 +3,9 @@ mod r#struct;
 use mockall::predicate::*;
 use mockall::*;
 use serde::Serializer;
-use serde_hooks::ser::{Hooks, Path, ValueScope, StructScope, MapKeyScope, MapScope, ErrorScope, Value};
+
+use serde_hooks::ser::{ErrorScope, Hooks, MapKeyScope, MapScope, StructScope, ValueScope};
+use serde_hooks::{Path, Value};
 
 mock! {
     Hooks {

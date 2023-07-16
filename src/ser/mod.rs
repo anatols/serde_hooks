@@ -1,16 +1,53 @@
-use serde::Serialize;
+use std::borrow::Cow;
+
+use serde::{Serialize, Serializer};
 
 mod context;
-mod hooks;
-mod path;
-mod value;
+mod scope;
 mod wrapper;
 
-pub use hooks::{ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, ValueScope};
-pub use path::Path;
-pub use value::{PrimitiveValue, Value};
+pub use scope::{ErrorScope, MapKeyScope, MapKeySelector, MapScope, StructScope, ValueScope};
 
 use context::SerializableWithContext;
+
+//TODO add support for:
+// rename key free-form & cases
+// flatten?
+// convert struct to map
+// sequences & tuples
+
+pub trait Hooks {
+    fn start(&self) {}
+
+    fn end(&self) {}
+
+    #[allow(unused_variables)]
+    fn on_error(&self, err: &mut ErrorScope) {}
+
+    #[allow(unused_variables)]
+    fn on_map(&self, map: &mut MapScope) {}
+
+    #[allow(unused_variables)]
+    fn on_map_key<S: Serializer>(&self, map_key: &mut MapKeyScope<S>) {}
+
+    #[allow(unused_variables)]
+    fn on_struct(&self, st: &mut StructScope) {}
+
+    #[allow(unused_variables)]
+    fn on_value<S: Serializer>(&self, value: &mut ValueScope<S>) {}
+}
+
+#[derive(Debug, thiserror::Error, Eq, PartialEq)]
+pub enum HooksError {
+    #[error("cannot add key {0}, the key is already present in the map")]
+    KeyAlreadyPresent(MapKeySelector),
+    #[error("cannot add entry with an index {0}, please specify key value")]
+    CannotAddEntryByIndex(usize),
+    #[error("key {0} not found")]
+    KeyNotFound(MapKeySelector),
+    #[error("field \"{0}\" not found")]
+    FieldNotFound(Cow<'static, str>),
+}
 
 pub fn hook<'s, 'h, T: Serialize + ?Sized, H: Hooks>(
     serializable: &'s T,

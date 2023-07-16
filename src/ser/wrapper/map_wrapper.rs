@@ -3,12 +3,12 @@ use std::{cell::Cell, fmt::Display};
 use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
-use super::{OnMapEntryActions, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
-use crate::ser::{
-    hooks::{MapEntryAction, MapKeySelector},
-    path::PathMapKey,
-    HooksError, PrimitiveValue,
-};
+use crate::path::PathMapKey;
+use crate::ser::{HooksError, MapKeySelector};
+use crate::ser::scope::{MapEntryAction, OnMapEntryActions};
+use crate::PrimitiveValue;
+
+use super::{SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_map: S::SerializeMap,
