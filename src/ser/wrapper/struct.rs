@@ -126,7 +126,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
 }
 
 // Serde expects struct fields to be `&'static str` because for structs the field
-// names are knows at compile time. A serializer can theoretically hold on to those
+// names are known at compile time. A serializer can theoretically hold on to those
 // field name references forever and expect them to be valid.
 //
 // To be able to rename a field, we thus need to somehow generate a string at
