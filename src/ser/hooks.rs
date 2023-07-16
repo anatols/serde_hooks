@@ -27,15 +27,20 @@ pub trait Hooks {
 
     fn end(&self) {}
 
+    #[allow(unused_variables)]
     fn on_error(&self, err: &mut ErrorScope) {}
 
-    fn on_map(&self, _map: &mut MapScope) {}
+    #[allow(unused_variables)]
+    fn on_map(&self, map: &mut MapScope) {}
 
-    fn on_map_key<S: Serializer>(&self, _map_key: &mut MapKeyScope<S>) {}
+    #[allow(unused_variables)]
+    fn on_map_key<S: Serializer>(&self, map_key: &mut MapKeyScope<S>) {}
 
-    fn on_struct(&self, _st: &mut StructScope) {}
+    #[allow(unused_variables)]
+    fn on_struct(&self, st: &mut StructScope) {}
 
-    fn on_value<S: Serializer>(&self, _value: &mut ValueScope<S>) {}
+    #[allow(unused_variables)]
+    fn on_value<S: Serializer>(&self, value: &mut ValueScope<S>) {}
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
