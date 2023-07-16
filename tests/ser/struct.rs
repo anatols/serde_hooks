@@ -1,5 +1,9 @@
+use std::{cell::Cell, rc::Rc};
+
 use serde::Serialize;
 use serde_hooks::ser;
+
+use super::MockHooks;
 
 //TODO
 // error conditions: not matching fields
@@ -124,7 +128,30 @@ fn test_replace_value() {
 
 #[test]
 fn test_error() {
-    struct Hooks;
+    // let mut hooks = MockHooks::new();
+    // hooks.expect_start().return_const(());
+    // hooks.expect_end().return_const(());
+    // hooks
+    //     .expect_on_struct()
+    //     .return_once(|st: &mut ser::StructScope| {
+    //         st.retain_field("invalid");
+    //     });
+
+    // hooks
+    //     .expect_on_error()
+    //     .return_once(|err: &mut ser::ErrorScope| {
+    //         assert_eq!(err.path().to_string(), "$");
+    //         assert_eq!(
+    //             *err.error(),
+    //             ser::HooksError::FieldNotFound("invalid".into())
+    //         );
+    //         err.propagate();
+    //     });
+
+    let on_error_called = Rc::new(Cell::new(false));
+    struct Hooks {
+        on_error_called: Rc<Cell<bool>>,
+    }
     impl ser::Hooks for Hooks {
         fn on_struct(&self, st: &mut ser::StructScope) {
             //TODO test other functions
@@ -139,8 +166,12 @@ fn test_error() {
                 ser::HooksError::FieldNotFound("invalid".into())
             );
             err.propagate();
+            self.on_error_called.set(true);
         }
     }
-
-    assert!(serde_json::to_string(&ser::hook(&Payload::new(), Hooks)).is_err());
+    let hooks = Hooks {
+        on_error_called: on_error_called.clone(),
+    };
+    assert!(serde_json::to_string(&ser::hook(&Payload::new(), hooks)).is_err());
+    assert!(on_error_called.get());
 }
