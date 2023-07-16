@@ -12,7 +12,7 @@ use super::HooksError;
 
 use super::scope::{OnMapEntryActions, OnStructFieldActions, OnValueAction};
 
-pub trait SerializerWrapperHooks {
+pub(crate) trait SerializerWrapperHooks {
     fn path_push(&self, segment: PathSegment);
 
     fn path_pop(&self);
@@ -219,7 +219,7 @@ pub enum SerializableKind {
 }
 
 //TODO give this thing a constructor (or remove constructors from oher internal structs?)
-pub struct SerializableWithHooks<'s, 'h, T: Serialize + ?Sized, H: SerializerWrapperHooks> {
+pub(crate) struct SerializableWithHooks<'s, 'h, T: Serialize + ?Sized, H: SerializerWrapperHooks> {
     serializable: &'s T,
     hooks: &'h H,
     kind: SerializableKind,

@@ -5,14 +5,14 @@ use smallvec::SmallVec;
 use crate::{Path, PrimitiveValue};
 
 #[derive(Debug)]
-pub enum StructFieldAction {
+pub(crate) enum StructFieldAction {
     Retain(Cow<'static, str>),
     Skip(Cow<'static, str>),
     Rename(Cow<'static, str>, Cow<'static, str>),
     ReplaceValue(Cow<'static, str>, PrimitiveValue),
 }
 
-pub type OnStructFieldActions = SmallVec<[StructFieldAction; 8]>;
+pub(crate) type OnStructFieldActions = SmallVec<[StructFieldAction; 8]>;
 
 pub struct StructScope<'p> {
     path: &'p Path,

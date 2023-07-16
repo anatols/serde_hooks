@@ -6,7 +6,7 @@ use crate::{Path, PrimitiveValue, path::PathMapKey};
 
 //TODO does it need to be pub?
 #[derive(Debug)]
-pub enum MapEntryAction {
+pub(crate) enum MapEntryAction {
     Retain(MapKeySelector),
     Skip(MapKeySelector),
     Add(MapKeySelector, Option<PrimitiveValue>),
@@ -15,7 +15,7 @@ pub enum MapEntryAction {
     ReplaceKey(MapKeySelector, PrimitiveValue),
 }
 
-pub type OnMapEntryActions = SmallVec<[MapEntryAction; 8]>;
+pub(crate) type OnMapEntryActions = SmallVec<[MapEntryAction; 8]>;
 
 pub struct MapScope<'p> {
     path: &'p Path,

@@ -2,7 +2,7 @@ use serde::{Serializer, Serialize};
 
 use crate::{Path, Value};
 
-pub enum OnValueAction<S: Serializer> {
+pub(crate) enum OnValueAction<S: Serializer> {
     ContinueSerialization(S),
     ValueReplaced(Result<S::Ok, S::Error>),
 }

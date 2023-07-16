@@ -10,7 +10,7 @@ use crate::PrimitiveValue;
 
 use super::{SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
-pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
+pub(crate) struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_map: S::SerializeMap,
     hooks: &'h H,
     actions: OnMapEntryActions,

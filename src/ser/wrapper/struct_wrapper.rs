@@ -8,7 +8,7 @@ use crate::PrimitiveValue;
 
 use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
-pub struct SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
+pub(crate) struct SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     serialize_struct: S::SerializeStruct,
     hooks: &'h H,
     actions: OnStructFieldActions,
