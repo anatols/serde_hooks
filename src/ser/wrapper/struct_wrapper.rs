@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Mutex};
+use std::{borrow::Cow, collections::HashSet, pin::Pin, sync::Mutex};
 
 use serde::{
     ser::{Error, SerializeStruct},
@@ -124,28 +124,41 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
     where
         T: Serialize,
     {
+        // Serde expects struct fields to be `&'static str` because for structs the field
+        // names are knows at compile time. A serializer can theoretically hold on to those 
+        // field name references forever and expect them to be valid.
+        //
+        // To be able to rename a field, we thus need to somehow generate a string at
+        // runtime that will have a 'static lifetime.
+        //
+        // The 'static lifetime is defined as 'will live till the program ends'. Here
+        // we keep a static set of pinned Box<str>, and store unique names in it.
+        // The static set will not get destroyed until the program ends. Although
+        // boxes can move in the set, where they point remains pinned in place until the end
+        // of the program because we never delete. For all practical purposes those boxed
+        // strs are static, so safe to transmute to 'static lifetime here.
+        //
+        // This is obviously "leaking" memory on each new field, but hey, how many of those
+        // unique renamed fields are you planning to have?
         match key {
             Cow::Borrowed(static_key) => self.serialize_struct.serialize_field(static_key, value),
             Cow::Owned(string_key) => {
-                static KEYS: Mutex<Vec<Box<str>>> = Mutex::new(vec![]);
+                lazy_static::lazy_static! {
+                    static ref KEYS: Mutex<HashSet<Pin<Box<str>>>> = Mutex::new(HashSet::new());
+                }
 
                 let mut keys = KEYS.lock().unwrap();
-                let maybe_key = keys.iter().find(|k| ***k == string_key);
+                let boxed_key = Pin::new(string_key.into_boxed_str());
 
-                // Boxes can move in the vector, but where they point remains in place until the end
-                // of the program because we never delete. For all practical purposes it is 'static,
-                // so safe to transmute here.
-                let static_key: &'static str = match maybe_key {
-                    Some(boxed_key) => unsafe {
-                        std::mem::transmute::<&str, &'static str>(boxed_key.as_ref())
+                let static_key: &'static str = match keys.get(&boxed_key) {
+                    Some(existing_boxed_key) => unsafe {
+                        std::mem::transmute::<&str, &'static str>(existing_boxed_key)
                     },
                     None => {
-                        // This is obviously "leaking" memory on each new field, but hey, how many of those
-                        // renamed fields are you planning to have?
-                        keys.push(string_key.clone().into_boxed_str());
-                        unsafe {
-                            std::mem::transmute::<&str, &'static str>(keys.last().unwrap().as_ref())
-                        }
+                        let static_key =
+                            unsafe { std::mem::transmute::<&str, &'static str>(&boxed_key) };
+                        keys.insert(boxed_key);
+                        static_key
                     }
                 };
 
