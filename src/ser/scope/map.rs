@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use smallvec::SmallVec;
 
-use crate::{Path, PrimitiveValue, path::PathMapKey};
+use crate::{path::PathMapKey, Path, PrimitiveValue};
 
 //TODO does it need to be pub?
 #[derive(Debug)]

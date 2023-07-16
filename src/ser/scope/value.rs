@@ -1,4 +1,4 @@
-use serde::{Serializer, Serialize};
+use serde::{Serialize, Serializer};
 
 use crate::{Path, Value};
 

@@ -4,8 +4,8 @@ use serde::{ser::Impossible, Serialize, Serializer};
 use thiserror::Error;
 
 use crate::path::PathMapKey;
-use crate::ser::{HooksError, MapKeySelector};
 use crate::ser::scope::{MapEntryAction, OnMapEntryActions};
+use crate::ser::{HooksError, MapKeySelector};
 use crate::PrimitiveValue;
 
 use super::{SerializableKind, SerializableWithHooks, SerializerWrapperHooks};

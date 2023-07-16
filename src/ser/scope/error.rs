@@ -1,6 +1,6 @@
 use serde::Serializer;
 
-use crate::{Path, ser::HooksError};
+use crate::{ser::HooksError, Path};
 
 pub struct ErrorScope<'p> {
     path: &'p Path,

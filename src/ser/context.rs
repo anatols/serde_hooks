@@ -59,7 +59,11 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         scope.into_actions()
     }
 
-    fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> scope::OnStructFieldActions {
+    fn on_struct(
+        &self,
+        struct_len: usize,
+        struct_name: &'static str,
+    ) -> scope::OnStructFieldActions {
         let path = &self.inner.borrow().path;
         let mut scope = StructScope::new(path, struct_len, struct_name);
         self.inner.borrow().hooks.on_struct(&mut scope);
