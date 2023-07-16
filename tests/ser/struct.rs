@@ -1,12 +1,7 @@
-use std::{cell::Cell, rc::Rc};
+use std::cell::Cell;
 
 use serde::Serialize;
 use serde_hooks::ser;
-
-use super::MockHooks;
-
-//TODO
-// error conditions: not matching fields
 
 #[derive(Serialize)]
 struct Payload {
@@ -56,7 +51,7 @@ fn test_struct_traversing() {
         }
     }
 
-    serde_json::to_string(&ser::hook(&outer, Hooks)).unwrap();
+    serde_json::to_string(&ser::hook(&outer, &Hooks)).unwrap();
 }
 
 #[test]
@@ -68,10 +63,10 @@ fn test_skip_field() {
         }
     }
 
-    let json = serde_json::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
+    let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(json, r#"{"bar":"a"}"#);
 
-    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
+    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(yaml, "bar: 'a'\n");
 }
 
@@ -84,10 +79,10 @@ fn test_retain_field() {
         }
     }
 
-    let json = serde_json::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
+    let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(json, r#"{"foo":42,"bar":"a"}"#);
 
-    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
+    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(yaml, "foo: 42\nbar: 'a'\n");
 }
 
@@ -103,10 +98,10 @@ fn test_rename_field() {
         }
     }
 
-    let json = serde_json::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
+    let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(json, r#"{"not_foo":42,"bar_42":"a","baz3":"sample"}"#);
 
-    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
+    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(yaml, "not_foo: 42\nbar_42: 'a'\nbaz3: sample\n");
 }
 
@@ -119,10 +114,10 @@ fn test_replace_value() {
         }
     }
 
-    let json = serde_json::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
+    let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(json, r#"{"foo":42,"bar":"a","baz":-15}"#);
 
-    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
+    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(yaml, "foo: 42\nbar: 'a'\nbaz: -15\n");
 }
 
@@ -148,9 +143,8 @@ fn test_error() {
     //         err.propagate();
     //     });
 
-    let on_error_called = Rc::new(Cell::new(false));
     struct Hooks {
-        on_error_called: Rc<Cell<bool>>,
+        on_error_called: Cell<bool>,
     }
     impl ser::Hooks for Hooks {
         fn on_struct(&self, st: &mut ser::StructScope) {
@@ -170,8 +164,8 @@ fn test_error() {
         }
     }
     let hooks = Hooks {
-        on_error_called: on_error_called.clone(),
+        on_error_called: Cell::new(false),
     };
-    assert!(serde_json::to_string(&ser::hook(&Payload::new(), hooks)).is_err());
-    assert!(on_error_called.get());
+    assert!(serde_json::to_string(&ser::hook(&Payload::new(), &hooks)).is_err());
+    assert!(hooks.on_error_called.get());
 }

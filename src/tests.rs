@@ -102,7 +102,7 @@ fn test_payload() {
         "{}",
         serde_json::to_string_pretty(&ser::hook(
             &payload,
-            Hks {
+            &Hks {
                 data: "BLAH".into()
             }
         ))

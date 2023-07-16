@@ -7,13 +7,13 @@ use super::path::{Path, PathSegment};
 use super::wrapper;
 use super::Value;
 
-pub struct SerializableWithContext<'s, T: Serialize + ?Sized, H: Hooks> {
+pub struct SerializableWithContext<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
     serializable: &'s T,
-    context: Context<H>,
+    context: Context<'h, H>,
 }
 
-impl<'s, T: Serialize + ?Sized, H: Hooks> SerializableWithContext<'s, T, H> {
-    pub(super) fn new(serializable: &'s T, hooks: H) -> Self {
+impl<'s, 'h, T: Serialize + ?Sized, H: Hooks> SerializableWithContext<'s, 'h, T, H> {
+    pub(super) fn new(serializable: &'s T, hooks: &'h H) -> Self {
         Self {
             serializable,
             context: Context::new(hooks),
@@ -21,7 +21,7 @@ impl<'s, T: Serialize + ?Sized, H: Hooks> SerializableWithContext<'s, T, H> {
     }
 }
 
-impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, T, H> {
+impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, '_, T, H> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -38,11 +38,11 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, 
 }
 
 #[derive(Debug, Clone)]
-pub struct Context<H: Hooks> {
-    inner: Rc<RefCell<ContextInner<H>>>,
+pub struct Context<'h, H: Hooks> {
+    inner: Rc<RefCell<ContextInner<'h, H>>>,
 }
 
-impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
+impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
     fn path_push(&self, segment: PathSegment) {
         self.inner.borrow_mut().path.push_segment(segment);
     }
@@ -94,8 +94,8 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
     }
 }
 
-impl<H: Hooks> Context<H> {
-    pub(super) fn new(hooks: H) -> Self {
+impl<'h, H: Hooks> Context<'h, H> {
+    pub(super) fn new(hooks: &'h H) -> Self {
         Self {
             inner: Rc::new(RefCell::new(ContextInner {
                 path: Default::default(),
@@ -114,7 +114,7 @@ impl<H: Hooks> Context<H> {
 }
 
 #[derive(Debug)]
-struct ContextInner<H: Hooks> {
+struct ContextInner<'h, H: Hooks> {
     path: Path,
-    hooks: H,
+    hooks: &'h H,
 }

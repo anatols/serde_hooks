@@ -12,9 +12,9 @@ pub use value::{PrimitiveValue, Value};
 
 use context::SerializableWithContext;
 
-pub fn hook<T: Serialize + ?Sized, H: Hooks>(
-    serializable: &T,
-    hooks: H,
-) -> SerializableWithContext<T, H> {
+pub fn hook<'s, 'h, T: Serialize + ?Sized, H: Hooks>(
+    serializable: &'s T,
+    hooks: &'h H,
+) -> SerializableWithContext<'s, 'h, T, H> {
     SerializableWithContext::new(serializable, hooks)
 }
