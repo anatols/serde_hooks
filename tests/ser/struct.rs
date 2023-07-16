@@ -37,6 +37,7 @@ fn test_struct_traversing() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, st: &mut ser::StructScope) {
+            //TODO use mock to ensure this is called
             match st.path().to_string().as_str() {
                 "$" => {
                     assert_eq!(st.struct_name(), "Outer");
@@ -119,4 +120,27 @@ fn test_replace_value() {
 
     let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), Hooks)).unwrap();
     assert_eq!(yaml, "foo: 42\nbar: 'a'\nbaz: -15\n");
+}
+
+#[test]
+fn test_error() {
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_struct(&self, st: &mut ser::StructScope) {
+            //TODO test other functions
+            st.retain_field("invalid");
+        }
+
+        fn on_error(&self, err: &mut ser::ErrorScope) {
+            //TODO use mock to ensure this is called
+            assert_eq!(err.path().to_string(), "$");
+            assert_eq!(
+                *err.error(),
+                ser::HooksError::FieldNotFound("invalid".into())
+            );
+            err.propagate();
+        }
+    }
+
+    assert!(serde_json::to_string(&ser::hook(&Payload::new(), Hooks)).is_err());
 }

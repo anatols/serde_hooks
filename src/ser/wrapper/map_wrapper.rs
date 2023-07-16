@@ -7,7 +7,7 @@ use super::{OnMapEntryActions, SerializableKind, SerializableWithHooks, Serializ
 use crate::ser::{
     hooks::{MapEntryAction, MapKeySelector},
     path::PathMapKey,
-    PrimitiveValue,
+    HooksError, PrimitiveValue,
 };
 
 pub struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
@@ -75,7 +75,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         let mut replace_entry = false;
         let mut replacement_value: Option<PrimitiveValue> = None;
         let mut replacement_key: Option<PrimitiveValue> = None;
-        let mut error: Option<Self::Error> = None;
+        let mut error = None;
 
         self.actions.retain_mut(|a| {
             if error.is_some() {
@@ -99,9 +99,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                 MapEntryAction::Add(k, _) => {
                     let matches = k.matches_path_key(&map_key);
                     if matches {
-                        error = Some(serde::ser::Error::custom(format!(
-                            "cannot add key {k}, the key is already present in the map"
-                        )));
+                        error = Some(HooksError::KeyAlreadyPresent(k.clone()));
                     }
                     true
                 }
@@ -116,7 +114,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                 MapEntryAction::ReplaceKey(k, v) => {
                     let matches = k.matches_path_key(&map_key);
                     if matches {
-                        map_key = PathMapKey::from_index_and_primitive_value(map_key.index(), v.clone());
+                        map_key =
+                            PathMapKey::from_index_and_primitive_value(map_key.index(), v.clone());
                         replacement_key = Some(v.clone());
                     }
                     !matches
@@ -125,7 +124,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         });
 
         if let Some(err) = error {
-            return Err(err);
+            self.hooks.on_error::<S>(err)?;
         }
 
         if self.have_retains && !retain_entry {
@@ -190,17 +189,15 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                         )?
                     }
                 }
-                MapEntryAction::Add(MapKeySelector::ByIndex(k), _)
-                | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByIndex(k), _) => {
-                    return Err(serde::ser::Error::custom(format!(
-                        "cannot add entry with an index {k}, please specify key value"
-                    )));
-                }
+                MapEntryAction::Add(MapKeySelector::ByIndex(index), _)
+                | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByIndex(index), _) => self
+                    .hooks
+                    .on_error::<S>(HooksError::CannotAddEntryByIndex(index))?,
                 MapEntryAction::Replace(k, _)
                 | MapEntryAction::Retain(k)
                 | MapEntryAction::Skip(k)
                 | MapEntryAction::ReplaceKey(k, _) => {
-                    return Err(serde::ser::Error::custom(format!("key {k} not found")));
+                    self.hooks.on_error::<S>(HooksError::KeyNotFound(k))?
                 }
             }
         }

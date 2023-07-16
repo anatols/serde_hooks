@@ -21,7 +21,10 @@ pub type OnStructFieldActions = SmallVec<[hooks::StructFieldAction; 8]>;
 
 pub trait SerializerWrapperHooks {
     fn path_push(&self, segment: PathSegment);
+
     fn path_pop(&self);
+
+    fn on_error<S: Serializer>(&self, error: hooks::HooksError) -> Result<(), S::Error>;
 
     fn on_map(&self, map_len: Option<usize>) -> OnMapEntryActions;
 
@@ -199,7 +202,9 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         let actions = self.hooks.on_struct(len, name);
         self.serializer
             .serialize_struct(name, len)
-            .map(|serialize_struct| SerializeStructWrapper::new(serialize_struct, self.hooks, actions))
+            .map(|serialize_struct| {
+                SerializeStructWrapper::new(serialize_struct, self.hooks, actions)
+            })
     }
 
     fn serialize_struct_variant(
@@ -302,6 +307,10 @@ mod tests {
             _struct_len: usize,
             _struct_name: &'static str,
         ) -> OnStructFieldActions {
+            todo!()
+        }
+
+        fn on_error<S: Serializer>(&self, error: hooks::HooksError) -> Result<(), S::Error> {
             todo!()
         }
     }

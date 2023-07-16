@@ -3,7 +3,7 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use serde::{Serialize, Serializer};
+use serde::{de::Error, Serialize, Serializer};
 
 use crate::ser::Path;
 
@@ -24,7 +24,10 @@ use super::{
 
 pub trait Hooks {
     fn start(&self) {}
+
     fn end(&self) {}
+
+    fn on_error(&self, err: &mut ErrorScope) {}
 
     fn on_map(&self, _map: &mut MapScope) {}
 
@@ -35,7 +38,7 @@ pub trait Hooks {
     fn on_value<S: Serializer>(&self, _value: &mut ValueScope<S>) {}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MapKeySelector {
     ByValue(PrimitiveValue),
     ByIndex(usize),
@@ -69,6 +72,18 @@ impl From<usize> for MapKeySelector {
     fn from(value: usize) -> Self {
         MapKeySelector::ByIndex(value)
     }
+}
+
+#[derive(Debug, thiserror::Error, Eq, PartialEq)]
+pub enum HooksError {
+    #[error("cannot add key {0}, the key is already present in the map")]
+    KeyAlreadyPresent(MapKeySelector),
+    #[error("cannot add entry with an index {0}, please specify key value")]
+    CannotAddEntryByIndex(usize),
+    #[error("key {0} not found")]
+    KeyNotFound(MapKeySelector),
+    #[error("field \"{0}\" not found")]
+    FieldNotFound(Cow<'static, str>),
 }
 
 //TODO does it need to be pub?
@@ -304,3 +319,55 @@ impl<'p, S: Serializer> ValueScope<'p, S> {
 }
 
 pub type MapKeyScope<'p, S> = ValueScope<'p, S>;
+
+pub struct ErrorScope<'p> {
+    path: &'p Path,
+    error: HooksError,
+    ignore: bool,
+}
+
+impl<'p> ErrorScope<'p> {
+    pub(crate) fn new(path: &'p Path, error: HooksError) -> Self {
+        Self {
+            path,
+            error,
+            ignore: false,
+        }
+    }
+
+    pub(crate) fn into_result<S: Serializer>(self) -> Result<(), S::Error> {
+        if self.ignore {
+            Ok(())
+        } else {
+            Err(serde::ser::Error::custom(self.format_error_message()))
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        self.path
+    }
+
+    pub fn error(&self) -> &HooksError {
+        &self.error
+    }
+
+    pub fn ignore(&mut self) {
+        self.ignore = true;
+    }
+
+    pub fn panic(&mut self) {
+        panic!("{}", self.format_error_message());
+    }
+
+    pub fn propagate(&mut self) {
+        self.ignore = false;
+    }
+
+    fn format_error_message(&self) -> String {
+        format!(
+            "Error at {path}: {err}",
+            path = self.path.to_string(),
+            err = self.error,
+        )
+    }
+}

@@ -1,11 +1,8 @@
 use std::{borrow::Cow, collections::HashSet, pin::Pin, sync::Mutex};
 
-use serde::{
-    ser::{Error, SerializeStruct},
-    Serialize, Serializer,
-};
+use serde::{Serialize, Serializer};
 
-use crate::ser::{hooks::StructFieldAction, PrimitiveValue};
+use crate::ser::{hooks::StructFieldAction, HooksError, PrimitiveValue};
 
 use super::{
     OnStructFieldActions, PathSegment, SerializableKind, SerializableWithHooks,
@@ -114,7 +111,17 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        //TODO verify that no actions remain
+        if let Some(a) = self.actions.into_iter().next() {
+            match a {
+                StructFieldAction::Retain(f)
+                | StructFieldAction::Skip(f)
+                | StructFieldAction::Rename(f, _)
+                | StructFieldAction::ReplaceValue(f, _) => {
+                    self.hooks.on_error::<S>(HooksError::FieldNotFound(f))?
+                }
+            }
+        }
+
         self.serialize_struct.end()
     }
 }

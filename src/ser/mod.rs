@@ -6,7 +6,7 @@ mod path;
 mod value;
 mod wrapper;
 
-pub use hooks::{Hooks, MapScope, ValueScope, MapKeyScope, StructScope};
+pub use hooks::{ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, ValueScope};
 pub use path::Path;
 pub use value::{PrimitiveValue, Value};
 

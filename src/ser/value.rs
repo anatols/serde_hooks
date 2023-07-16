@@ -1,4 +1,4 @@
-use std::{fmt::Display, borrow::Cow};
+use std::{borrow::Cow, fmt::Display};
 
 use serde::{Serialize, Serializer};
 
@@ -19,6 +19,8 @@ pub enum PrimitiveValue {
     Char(char),
     Str(Cow<'static, str>),
 }
+
+impl Eq for PrimitiveValue {}
 
 impl Serialize for PrimitiveValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

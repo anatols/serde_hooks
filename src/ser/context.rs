@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Serialize, Serializer};
 
-use super::hooks::{Hooks, MapKeyScope, MapScope, StructScope, ValueScope};
+use super::hooks::{ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, ValueScope};
 use super::path::{Path, PathSegment};
 use super::wrapper;
 use super::Value;
@@ -83,6 +83,14 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<H> {
         let mut scope = ValueScope::new(path, serializer, value);
         self.inner.borrow().hooks.on_value(&mut scope);
         scope.into_action()
+    }
+
+    fn on_error<S: Serializer>(&self, error: HooksError) -> Result<(), S::Error> {
+        let path = &self.inner.borrow().path;
+
+        let mut scope = ErrorScope::new(path, error);
+        self.inner.borrow().hooks.on_error(&mut scope);
+        scope.into_result::<S>()
     }
 }
 
