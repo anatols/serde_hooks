@@ -20,6 +20,7 @@ use super::{
 // replace key?
 // rename key free-form & cases
 // flatten?
+// convert struct to map
 
 pub trait Hooks {
     fn start(&self) {}
@@ -231,30 +232,30 @@ impl<'p> StructScope<'p> {
         self.struct_name
     }
 
-    pub fn retain_field<K: Into<Cow<'static, str>>>(&mut self, key: K) -> &mut Self {
+    pub fn retain_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
         self.actions.push(StructFieldAction::Retain(key.into()));
         self
     }
 
-    pub fn skip_field<K: Into<Cow<'static, str>>>(&mut self, key: K) -> &mut Self {
+    pub fn skip_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
         self.actions.push(StructFieldAction::Skip(key.into()));
         self
     }
 
-    pub fn rename_field<K: Into<Cow<'static, str>>, N: Into<Cow<'static, str>>>(
+    pub fn rename_field(
         &mut self,
-        key: K,
-        new_key: N,
+        key: impl Into<Cow<'static, str>>,
+        new_key: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
         self.actions
             .push(StructFieldAction::Rename(key.into(), new_key.into()));
         self
     }
 
-    pub fn replace_value<K: Into<Cow<'static, str>>, V: Into<PrimitiveValue>>(
+    pub fn replace_value(
         &mut self,
-        key: K,
-        new_value: V,
+        key: impl Into<Cow<'static, str>>,
+        new_value: impl Into<PrimitiveValue>,
     ) -> &mut Self {
         self.actions.push(StructFieldAction::ReplaceValue(
             key.into(),
