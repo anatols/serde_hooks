@@ -26,6 +26,8 @@ impl ToString for Path {
     }
 }
 
+/// Note: for map keys of type `Value::Bytes` the actual bytes are not stored to avoid
+/// allocation on every map key.
 #[derive(Debug, Clone)]
 pub struct PathMapKey {
     index: usize,

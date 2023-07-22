@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::{cell::Cell, fmt::Display};
 
 use serde::{ser::Impossible, Serialize, Serializer};
@@ -296,11 +297,10 @@ impl Serializer for MapKeyCapture {
         ))
     }
 
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
         Ok(PathMapKey::new(
             self.entry_index,
-            //TODO cloning the bytes here for each map key is suboptimal
-            Value::Bytes(v.to_owned().into()),
+            Value::Bytes(Cow::Borrowed(&[])),
         ))
     }
 
