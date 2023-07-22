@@ -21,7 +21,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializerWrapper<'h, S, H> {
     }
 }
 
-macro_rules! primitive_value_ctor {
+macro_rules! value_ctor {
     ($variant:ident) => {
         crate::Value::Primitive(crate::PrimitiveValue::$variant)
     };
@@ -36,12 +36,12 @@ macro_rules! primitive_value_ctor {
     };
 }
 
-macro_rules! wrap_primitive_serialize {
+macro_rules! value_serialize {
     ($fn:ident, $variant:ident $(, $arg:ident : $type:ty)* $(=> $v:ident : $vt:ident)?) => {
         fn $fn $(<$vt>)? (self, $($arg: $type,)* $($v: &$vt)?) -> Result<Self::Ok, Self::Error>
         $(where $vt: Serialize + ?Sized)?
         {
-            let value = primitive_value_ctor!($variant $(, $arg)*);
+            let value = value_ctor!($variant $(, $arg)*);
             let value_action = match self.kind {
                 SerializableKind::Value => self
                     .hooks
@@ -70,24 +70,24 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     type SerializeStruct = SerializeStructWrapper<'h, S, H>;
     type SerializeStructVariant = S::SerializeStructVariant;
 
-    wrap_primitive_serialize!(serialize_bool, Bool, v: bool);
-    wrap_primitive_serialize!(serialize_i8, I8, v: i8);
-    wrap_primitive_serialize!(serialize_i16, I16, v: i16);
-    wrap_primitive_serialize!(serialize_i32, I32, v: i32);
-    wrap_primitive_serialize!(serialize_i64, I64, v: i64);
-    wrap_primitive_serialize!(serialize_u8, U8, v: u8);
-    wrap_primitive_serialize!(serialize_u16, U16, v: u16);
-    wrap_primitive_serialize!(serialize_u32, U32, v: u32);
-    wrap_primitive_serialize!(serialize_u64, U64, v: u64);
-    wrap_primitive_serialize!(serialize_f32, F32, v: f32);
-    wrap_primitive_serialize!(serialize_f64, F64, v: f64);
-    wrap_primitive_serialize!(serialize_char, Char, v: char);
-    wrap_primitive_serialize!(serialize_str, Str, v: &str);
-    wrap_primitive_serialize!(serialize_bytes, Bytes, v: &[u8]);
-    wrap_primitive_serialize!(serialize_unit, Unit);
-    wrap_primitive_serialize!(serialize_none, None);
-    wrap_primitive_serialize!(serialize_unit_struct, UnitStruct, name: &'static str);
-    wrap_primitive_serialize!(
+    value_serialize!(serialize_bool, Bool, v: bool);
+    value_serialize!(serialize_i8, I8, v: i8);
+    value_serialize!(serialize_i16, I16, v: i16);
+    value_serialize!(serialize_i32, I32, v: i32);
+    value_serialize!(serialize_i64, I64, v: i64);
+    value_serialize!(serialize_u8, U8, v: u8);
+    value_serialize!(serialize_u16, U16, v: u16);
+    value_serialize!(serialize_u32, U32, v: u32);
+    value_serialize!(serialize_u64, U64, v: u64);
+    value_serialize!(serialize_f32, F32, v: f32);
+    value_serialize!(serialize_f64, F64, v: f64);
+    value_serialize!(serialize_char, Char, v: char);
+    value_serialize!(serialize_str, Str, v: &str);
+    value_serialize!(serialize_bytes, Bytes, v: &[u8]);
+    value_serialize!(serialize_unit, Unit);
+    value_serialize!(serialize_none, None);
+    value_serialize!(serialize_unit_struct, UnitStruct, name: &'static str);
+    value_serialize!(
         serialize_unit_variant,
         UnitVariant,
         name: &'static str,
@@ -95,7 +95,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         variant: &'static str
     );
 
-    wrap_primitive_serialize!(
+    value_serialize!(
         serialize_newtype_struct,
         NewtypeStruct,
         name: &'static str
