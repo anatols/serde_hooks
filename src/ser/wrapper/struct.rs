@@ -96,11 +96,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
             self.serialize_struct
                 .serialize_field(into_static_str(field_key), &replacement_value)
         } else {
-            let s = SerializableWithHooks {
-                serializable: value,
-                hooks: self.hooks,
-                kind: SerializableKind::Value,
-            };
+            let s = SerializableWithHooks::new(value, self.hooks, SerializableKind::Value);
             self.serialize_struct
                 .serialize_field(into_static_str(field_key), &s)
         };

@@ -32,11 +32,20 @@ pub enum SerializableKind {
     MapKey,
 }
 
-//TODO give this thing a constructor (or remove constructors from oher internal structs?)
 pub(crate) struct SerializableWithHooks<'s, 'h, T: Serialize + ?Sized, H: SerializerWrapperHooks> {
     serializable: &'s T,
     hooks: &'h H,
     kind: SerializableKind,
+}
+
+impl<'s, 'h, T: Serialize + ?Sized, H: SerializerWrapperHooks> SerializableWithHooks<'s, 'h, T, H> {
+    pub(crate) fn new(serializable: &'s T, hooks: &'h H, kind: SerializableKind) -> Self {
+        Self {
+            serializable,
+            hooks,
+            kind,
+        }
+    }
 }
 
 impl<T: Serialize + ?Sized, H: SerializerWrapperHooks> Serialize

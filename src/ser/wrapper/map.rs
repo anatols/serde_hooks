@@ -145,24 +145,12 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         } else if let Some(replacement_key) = &replacement_key {
             self.serialize_map.serialize_entry(
                 replacement_key,
-                &SerializableWithHooks {
-                    serializable: value,
-                    hooks: self.hooks,
-                    kind: SerializableKind::Value,
-                },
+                &SerializableWithHooks::new(value, self.hooks, SerializableKind::Value),
             )
         } else {
             self.serialize_map.serialize_entry(
-                &SerializableWithHooks {
-                    serializable: key,
-                    hooks: self.hooks,
-                    kind: SerializableKind::MapKey,
-                },
-                &SerializableWithHooks {
-                    serializable: value,
-                    hooks: self.hooks,
-                    kind: SerializableKind::Value,
-                },
+                &SerializableWithHooks::new(key, self.hooks, SerializableKind::MapKey),
+                &SerializableWithHooks::new(value, self.hooks, SerializableKind::Value),
             )
         };
 
@@ -181,11 +169,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                     } else {
                         self.serialize_map.serialize_entry(
                             &k,
-                            &SerializableWithHooks {
-                                serializable: &v,
-                                hooks: self.hooks,
-                                kind: SerializableKind::Value,
-                            },
+                            &SerializableWithHooks::new(&v, self.hooks, SerializableKind::Value),
                         )?
                     }
                 }
