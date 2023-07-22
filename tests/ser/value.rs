@@ -5,6 +5,14 @@ use serde::Serialize;
 use serde_hooks::ser;
 
 #[derive(Serialize)]
+struct UnitStruct;
+
+#[derive(Serialize)]
+enum Enum {
+    UnitVariant,
+}
+
+#[derive(Serialize)]
 struct Payload<'s, 'b> {
     val_bool: bool,
     val_i8: i8,
@@ -35,6 +43,10 @@ struct Payload<'s, 'b> {
     val_unit: (),
 
     val_none: Option<()>,
+
+    val_unit_struct: UnitStruct,
+
+    val_unit_variant: Enum,
 }
 
 impl<'s, 'b> Payload<'s, 'b> {
@@ -60,6 +72,8 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_bytes_owned: [3, 4, 5, 6].into(),
             val_unit: (),
             val_none: None,
+            val_unit_struct: UnitStruct,
+            val_unit_variant: Enum::UnitVariant,
         }
     }
 
@@ -120,7 +134,19 @@ fn test_values() {
                     Value::Primitive(PrimitiveValue::Bytes(Cow::Borrowed(&[3, 4, 5, 6]))),
                 )
                 | ("$.val_unit", Value::Primitive(PrimitiveValue::Unit))
-                | ("$.val_none", Value::Primitive(PrimitiveValue::None)) => {}
+                | ("$.val_none", Value::Primitive(PrimitiveValue::None))
+                | (
+                    "$.val_unit_struct",
+                    Value::Primitive(PrimitiveValue::UnitStruct("UnitStruct")),
+                )
+                | (
+                    "$.val_unit_variant",
+                    Value::Primitive(PrimitiveValue::UnitVariant {
+                        name: "Enum",
+                        variant_index: 0,
+                        variant: "UnitVariant",
+                    }),
+                ) => {}
 
                 ("$.val_f32", Value::Primitive(PrimitiveValue::F32(v))) => {
                     assert_eq!(v.partial_cmp(&32.0f32), Some(Ordering::Equal));

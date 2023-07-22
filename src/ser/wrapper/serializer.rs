@@ -25,9 +25,15 @@ macro_rules! primitive_value_ctor {
     ($variant:ident) => {
         crate::Value::Primitive(crate::PrimitiveValue::$variant)
     };
-    ($variant:ident $(, $arg:ident)*) => {
-        crate::Value::Primitive(crate::PrimitiveValue::$variant($($arg.into())*))
-    }
+    ($variant:ident, $arg:ident) => {
+        crate::Value::Primitive(crate::PrimitiveValue::$variant($arg.into()))
+    };
+    ($variant:ident, $arg0:ident $(, $arg:ident)+) => {
+        crate::Value::Primitive(crate::PrimitiveValue::$variant{
+            $arg0 : $arg0.into(),
+            $($arg : $arg.into(),)*
+        })
+    };
 }
 
 macro_rules! wrap_primitive_serialize {
@@ -44,7 +50,7 @@ macro_rules! wrap_primitive_serialize {
             };
 
             match value_action {
-                OnValueAction::ContinueSerialization(s) => s.$fn($($arg)*),
+                OnValueAction::ContinueSerialization(s) => s.$fn($($arg,)*),
                 OnValueAction::ValueReplaced(r) => r,
             }
         }
@@ -78,26 +84,20 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     wrap_primitive_serialize!(serialize_bytes, Bytes, v: &[u8]);
     wrap_primitive_serialize!(serialize_unit, Unit);
     wrap_primitive_serialize!(serialize_none, None);
+    wrap_primitive_serialize!(serialize_unit_struct, UnitStruct, name: &'static str);
+    wrap_primitive_serialize!(
+        serialize_unit_variant,
+        UnitVariant,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str
+    );
 
     fn serialize_some<T: ?Sized>(self, v: &T) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
         self.serializer.serialize_some(v)
-    }
-
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_unit_struct(name)
-    }
-
-    fn serialize_unit_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-    ) -> Result<Self::Ok, Self::Error> {
-        self.serializer
-            .serialize_unit_variant(name, variant_index, variant)
     }
 
     fn serialize_newtype_struct<T: ?Sized>(

@@ -3,7 +3,6 @@ use std::{borrow::Cow, fmt::Display};
 use serde::{Serialize, Serializer};
 
 #[derive(Debug, Clone, PartialEq)]
-//TODO should this include None, Unit, UnitStruct?
 pub enum PrimitiveValue<'v> {
     Bool(bool),
     I8(i8),
@@ -21,6 +20,12 @@ pub enum PrimitiveValue<'v> {
     Bytes(Cow<'v, [u8]>),
     Unit,
     None,
+    UnitStruct(&'static str),
+    UnitVariant {
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+    },
 }
 
 pub type StaticPrimitiveValue = PrimitiveValue<'static>;
@@ -49,6 +54,12 @@ impl Serialize for PrimitiveValue<'_> {
             PrimitiveValue::Bytes(v) => serializer.serialize_bytes(v),
             PrimitiveValue::Unit => serializer.serialize_unit(),
             PrimitiveValue::None => serializer.serialize_none(),
+            PrimitiveValue::UnitStruct(name) => serializer.serialize_unit_struct(name),
+            PrimitiveValue::UnitVariant {
+                name,
+                variant_index,
+                variant,
+            } => serializer.serialize_unit_variant(name, *variant_index, variant),
         }
     }
 }
@@ -72,6 +83,10 @@ impl Display for PrimitiveValue<'_> {
             PrimitiveValue::Bytes(b) => f.write_fmt(format_args!("[{len} bytes]", len = b.len())),
             PrimitiveValue::Unit => f.write_str("()"),
             PrimitiveValue::None => f.write_str("None"),
+            PrimitiveValue::UnitStruct(name) => f.write_fmt(format_args!("{name}{{}}")),
+            PrimitiveValue::UnitVariant { name, variant, .. } => {
+                f.write_fmt(format_args!("{name}::{variant}"))
+            }
         }
     }
 }
@@ -133,8 +148,6 @@ cow_value_from_type!(Bytes, [u8], Vec<u8>);
 #[derive(Debug)]
 pub enum Value<'v> {
     Primitive(PrimitiveValue<'v>),
-    UnitStruct,
-    UnitVariant,
     NewtypeStruct,
     NewtypeVariant,
     Seq,
