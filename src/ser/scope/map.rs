@@ -59,10 +59,8 @@ impl<'p> MapScope<'p> {
         key: impl Into<MapKeySelector>,
         value: impl Into<StaticPrimitiveValue>,
     ) -> &mut Self {
-        self.actions.push(MapEntryAction::Add(
-            key.into(),
-            Some(value.into()),
-        ));
+        self.actions
+            .push(MapEntryAction::Add(key.into(), Some(value.into())));
         self
     }
 
@@ -97,10 +95,8 @@ impl<'p> MapScope<'p> {
         key: impl Into<MapKeySelector>,
         new_value: impl Into<StaticPrimitiveValue>,
     ) -> &mut Self {
-        self.actions.push(MapEntryAction::Replace(
-            key.into(),
-            Some(new_value.into()),
-        ));
+        self.actions
+            .push(MapEntryAction::Replace(key.into(), Some(new_value.into())));
         self
     }
 
@@ -115,10 +111,8 @@ impl<'p> MapScope<'p> {
         key: impl Into<MapKeySelector>,
         new_key: impl Into<StaticPrimitiveValue>,
     ) -> &mut Self {
-        self.actions.push(MapEntryAction::ReplaceKey(
-            key.into(),
-            new_key.into(),
-        ));
+        self.actions
+            .push(MapEntryAction::ReplaceKey(key.into(), new_key.into()));
         self
     }
 

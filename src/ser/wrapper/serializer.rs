@@ -25,14 +25,12 @@ macro_rules! wrap_primitive_serialize {
     ($fn:ident, $type:ty) => {
         fn $fn(self, v: $type) -> Result<Self::Ok, Self::Error> {
             let value_action = match self.kind {
-                SerializableKind::Value => self.hooks.on_value(
-                    self.serializer,
-                    crate::Value::Primitive(v.into()),
-                ),
-                SerializableKind::MapKey => self.hooks.on_map_key(
-                    self.serializer,
-                    crate::Value::Primitive(v.into()),
-                ),
+                SerializableKind::Value => self
+                    .hooks
+                    .on_value(self.serializer, crate::Value::Primitive(v.into())),
+                SerializableKind::MapKey => self
+                    .hooks
+                    .on_map_key(self.serializer, crate::Value::Primitive(v.into())),
             };
 
             match value_action {
