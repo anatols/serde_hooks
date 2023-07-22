@@ -19,6 +19,7 @@ pub enum PrimitiveValue<'v> {
     Char(char),
     Str(Cow<'v, str>),
     Bytes(Cow<'v, [u8]>),
+    Unit,
 }
 
 pub type StaticPrimitiveValue = PrimitiveValue<'static>;
@@ -44,7 +45,8 @@ impl Serialize for PrimitiveValue<'_> {
             PrimitiveValue::F64(v) => v.serialize(serializer),
             PrimitiveValue::Char(v) => v.serialize(serializer),
             PrimitiveValue::Str(v) => v.serialize(serializer),
-            PrimitiveValue::Bytes(v) => v.serialize(serializer),
+            PrimitiveValue::Bytes(v) => serializer.serialize_bytes(v),
+            PrimitiveValue::Unit => serializer.serialize_unit(),
         }
     }
 }
@@ -66,6 +68,7 @@ impl Display for PrimitiveValue<'_> {
             PrimitiveValue::Char(c) => f.write_fmt(format_args!("'{c}'")),
             PrimitiveValue::Str(s) => f.write_fmt(format_args!("\"{s}\"")),
             PrimitiveValue::Bytes(b) => f.write_fmt(format_args!("[{len} bytes]", len = b.len())),
+            PrimitiveValue::Unit => f.write_str("()"),
         }
     }
 }
@@ -92,6 +95,12 @@ primitive_value_from_type!(U64, u64);
 primitive_value_from_type!(F32, f32);
 primitive_value_from_type!(F64, f64);
 primitive_value_from_type!(Char, char);
+
+impl From<()> for PrimitiveValue<'_> {
+    fn from(_: ()) -> Self {
+        PrimitiveValue::Unit
+    }
+}
 
 macro_rules! cow_value_from_type {
     ($variant:ident,$borrowed:ty,$owned:ty) => {
@@ -122,7 +131,6 @@ cow_value_from_type!(Bytes, [u8], Vec<u8>);
 pub enum Value<'v> {
     Primitive(PrimitiveValue<'v>),
     None,
-    Unit,
     UnitStruct,
     UnitVariant,
     NewtypeStruct,

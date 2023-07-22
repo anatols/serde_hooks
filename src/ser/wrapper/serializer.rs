@@ -21,20 +21,30 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializerWrapper<'h, S, H> {
     }
 }
 
+macro_rules! primitive_value_ctor {
+    ($variant:ident) => {
+        crate::Value::Primitive(crate::PrimitiveValue::$variant)
+    };
+    ($variant:ident $(, $arg:ident)*) => {
+        crate::Value::Primitive(crate::PrimitiveValue::$variant($($arg.into())*))
+    }
+}
+
 macro_rules! wrap_primitive_serialize {
-    ($fn:ident, $type:ty) => {
-        fn $fn(self, v: $type) -> Result<Self::Ok, Self::Error> {
+    ($fn:ident, $variant:ident $(, $arg:ident : $type:ty)*) => {
+        fn $fn(self, $($arg: $type,)*) -> Result<Self::Ok, Self::Error> {
+            let value = primitive_value_ctor!($variant $(, $arg)*);
             let value_action = match self.kind {
                 SerializableKind::Value => self
                     .hooks
-                    .on_value(self.serializer, crate::Value::Primitive(v.into())),
+                    .on_value(self.serializer, value),
                 SerializableKind::MapKey => self
                     .hooks
-                    .on_map_key(self.serializer, crate::Value::Primitive(v.into())),
+                    .on_map_key(self.serializer, value),
             };
 
             match value_action {
-                OnValueAction::ContinueSerialization(s) => s.$fn(v),
+                OnValueAction::ContinueSerialization(s) => s.$fn($($arg)*),
                 OnValueAction::ValueReplaced(r) => r,
             }
         }
@@ -52,20 +62,21 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     type SerializeStruct = SerializeStructWrapper<'h, S, H>;
     type SerializeStructVariant = S::SerializeStructVariant;
 
-    wrap_primitive_serialize!(serialize_bool, bool);
-    wrap_primitive_serialize!(serialize_i8, i8);
-    wrap_primitive_serialize!(serialize_i16, i16);
-    wrap_primitive_serialize!(serialize_i32, i32);
-    wrap_primitive_serialize!(serialize_i64, i64);
-    wrap_primitive_serialize!(serialize_u8, u8);
-    wrap_primitive_serialize!(serialize_u16, u16);
-    wrap_primitive_serialize!(serialize_u32, u32);
-    wrap_primitive_serialize!(serialize_u64, u64);
-    wrap_primitive_serialize!(serialize_f32, f32);
-    wrap_primitive_serialize!(serialize_f64, f64);
-    wrap_primitive_serialize!(serialize_char, char);
-    wrap_primitive_serialize!(serialize_str, &str);
-    wrap_primitive_serialize!(serialize_bytes, &[u8]);
+    wrap_primitive_serialize!(serialize_bool, Bool, v: bool);
+    wrap_primitive_serialize!(serialize_i8, I8, v: i8);
+    wrap_primitive_serialize!(serialize_i16, I16, v: i16);
+    wrap_primitive_serialize!(serialize_i32, I32, v: i32);
+    wrap_primitive_serialize!(serialize_i64, I64, v: i64);
+    wrap_primitive_serialize!(serialize_u8, U8, v: u8);
+    wrap_primitive_serialize!(serialize_u16, U16, v: u16);
+    wrap_primitive_serialize!(serialize_u32, U32, v: u32);
+    wrap_primitive_serialize!(serialize_u64, U64, v: u64);
+    wrap_primitive_serialize!(serialize_f32, F32, v: f32);
+    wrap_primitive_serialize!(serialize_f64, F64, v: f64);
+    wrap_primitive_serialize!(serialize_char, Char, v: char);
+    wrap_primitive_serialize!(serialize_str, Str, v: &str);
+    wrap_primitive_serialize!(serialize_bytes, Bytes, v: &[u8]);
+    wrap_primitive_serialize!(serialize_unit, Unit);
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
         self.serializer.serialize_none()
@@ -76,10 +87,6 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         T: Serialize,
     {
         self.serializer.serialize_some(v)
-    }
-
-    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_unit()
     }
 
     fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
