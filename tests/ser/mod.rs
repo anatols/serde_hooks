@@ -1,4 +1,5 @@
 mod r#struct;
+mod value;
 
 use mockall::predicate::*;
 use mockall::*;
