@@ -18,6 +18,7 @@ pub enum PrimitiveValue<'v> {
     F64(f64),
     Char(char),
     Str(Cow<'v, str>),
+    Bytes(Cow<'v, [u8]>),
 }
 
 pub type StaticPrimitiveValue = PrimitiveValue<'static>;
@@ -43,6 +44,7 @@ impl Serialize for PrimitiveValue<'_> {
             PrimitiveValue::F64(v) => v.serialize(serializer),
             PrimitiveValue::Char(v) => v.serialize(serializer),
             PrimitiveValue::Str(v) => v.serialize(serializer),
+            PrimitiveValue::Bytes(v) => v.serialize(serializer),
         }
     }
 }
@@ -63,25 +65,8 @@ impl Display for PrimitiveValue<'_> {
             PrimitiveValue::F64(v) => Display::fmt(v, f),
             PrimitiveValue::Char(c) => f.write_fmt(format_args!("'{c}'")),
             PrimitiveValue::Str(s) => f.write_fmt(format_args!("\"{s}\"")),
+            PrimitiveValue::Bytes(b) => f.write_fmt(format_args!("[{len} bytes]", len = b.len())),
         }
-    }
-}
-
-impl<'v> From<&'v str> for PrimitiveValue<'v> {
-    fn from(value: &'v str) -> Self {
-        PrimitiveValue::Str(Cow::Borrowed(value))
-    }
-}
-
-impl From<String> for PrimitiveValue<'_> {
-    fn from(value: String) -> Self {
-        PrimitiveValue::Str(Cow::Owned(value))
-    }
-}
-
-impl<'v> From<Cow<'v, str>> for PrimitiveValue<'v> {
-    fn from(value: Cow<'v, str>) -> Self {
-        PrimitiveValue::Str(value)
     }
 }
 
@@ -108,10 +93,34 @@ primitive_value_from_type!(F32, f32);
 primitive_value_from_type!(F64, f64);
 primitive_value_from_type!(Char, char);
 
+macro_rules! cow_value_from_type {
+    ($variant:ident,$borrowed:ty,$owned:ty) => {
+        impl<'v> From<&'v $borrowed> for PrimitiveValue<'v> {
+            fn from(value: &'v $borrowed) -> Self {
+                PrimitiveValue::$variant(Cow::Borrowed(value))
+            }
+        }
+
+        impl From<$owned> for PrimitiveValue<'_> {
+            fn from(value: $owned) -> Self {
+                PrimitiveValue::$variant(Cow::Owned(value))
+            }
+        }
+
+        impl<'v> From<Cow<'v, $borrowed>> for PrimitiveValue<'v> {
+            fn from(value: Cow<'v, $borrowed>) -> Self {
+                PrimitiveValue::$variant(value)
+            }
+        }
+    };
+}
+
+cow_value_from_type!(Str, str, String);
+cow_value_from_type!(Bytes, [u8], Vec<u8>);
+
 #[derive(Debug)]
 pub enum Value<'v> {
     Primitive(PrimitiveValue<'v>),
-    Bytes,
     None,
     Unit,
     UnitStruct,

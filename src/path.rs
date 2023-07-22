@@ -79,6 +79,7 @@ impl PathMapKey {
             PrimitiveValue::F64(v) => PathMapKey::F64(index, v),
             PrimitiveValue::Char(v) => PathMapKey::Char(index, v),
             PrimitiveValue::Str(v) => PathMapKey::Str(index, v),
+            PrimitiveValue::Bytes(_) => PathMapKey::Bytes(index),
         }
     }
 

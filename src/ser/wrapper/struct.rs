@@ -46,8 +46,6 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
     where
         T: Serialize,
     {
-        println!("serialize_field {key}");
-
         let mut field_key: Cow<'static, str> = key.into();
         let mut retain_field = false;
         let mut skip_field = false;
