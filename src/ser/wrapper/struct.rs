@@ -88,6 +88,12 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
 
         self.hooks.path_push(PathSegment::StructField(key));
 
+        if let Some(replacement_value) = &replacement_value {
+            replacement_value
+                .check_if_can_serialize()
+                .or_else(|err| self.hooks.on_error::<S>(err))?;
+        }
+
         let res = if skip_field {
             self.serialize_struct.skip_field(key)
         } else if let Some(replacement_value) = replacement_value {

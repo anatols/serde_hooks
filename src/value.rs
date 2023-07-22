@@ -26,43 +26,24 @@ pub enum PrimitiveValue<'v> {
         variant_index: u32,
         variant: &'static str,
     },
+    NewtypeStruct(&'static str),
+    // NewtypeVariant {
+    //     name: &'static str,
+    //     variant_index: u32,
+    //     variant: &'static str,
+    // },
+    // Seq,
+    // Tuple,
+    // TupleStruct,
+    // TupleVariant,
+    // Map,
+    // Struct,
+    // StructVariant,
 }
 
 pub type StaticPrimitiveValue = PrimitiveValue<'static>;
 
 impl Eq for PrimitiveValue<'_> {}
-
-impl Serialize for PrimitiveValue<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            PrimitiveValue::Bool(v) => v.serialize(serializer),
-            PrimitiveValue::I8(v) => v.serialize(serializer),
-            PrimitiveValue::I16(v) => v.serialize(serializer),
-            PrimitiveValue::I32(v) => v.serialize(serializer),
-            PrimitiveValue::I64(v) => v.serialize(serializer),
-            PrimitiveValue::U8(v) => v.serialize(serializer),
-            PrimitiveValue::U16(v) => v.serialize(serializer),
-            PrimitiveValue::U32(v) => v.serialize(serializer),
-            PrimitiveValue::U64(v) => v.serialize(serializer),
-            PrimitiveValue::F32(v) => v.serialize(serializer),
-            PrimitiveValue::F64(v) => v.serialize(serializer),
-            PrimitiveValue::Char(v) => v.serialize(serializer),
-            PrimitiveValue::Str(v) => v.serialize(serializer),
-            PrimitiveValue::Bytes(v) => serializer.serialize_bytes(v),
-            PrimitiveValue::Unit => serializer.serialize_unit(),
-            PrimitiveValue::None => serializer.serialize_none(),
-            PrimitiveValue::UnitStruct(name) => serializer.serialize_unit_struct(name),
-            PrimitiveValue::UnitVariant {
-                name,
-                variant_index,
-                variant,
-            } => serializer.serialize_unit_variant(name, *variant_index, variant),
-        }
-    }
-}
 
 impl Display for PrimitiveValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -83,10 +64,11 @@ impl Display for PrimitiveValue<'_> {
             PrimitiveValue::Bytes(b) => f.write_fmt(format_args!("[{len} bytes]", len = b.len())),
             PrimitiveValue::Unit => f.write_str("()"),
             PrimitiveValue::None => f.write_str("None"),
-            PrimitiveValue::UnitStruct(name) => f.write_fmt(format_args!("{name}{{}}")),
+            PrimitiveValue::UnitStruct(name) => f.write_fmt(format_args!("unit struct {name}")),
             PrimitiveValue::UnitVariant { name, variant, .. } => {
                 f.write_fmt(format_args!("{name}::{variant}"))
             }
+            PrimitiveValue::NewtypeStruct(name) => f.write_fmt(format_args!("newtype {name}")),
         }
     }
 }
@@ -148,7 +130,7 @@ cow_value_from_type!(Bytes, [u8], Vec<u8>);
 #[derive(Debug)]
 pub enum Value<'v> {
     Primitive(PrimitiveValue<'v>),
-    NewtypeStruct,
+    // NewtypeStruct,
     NewtypeVariant,
     Seq,
     Tuple,

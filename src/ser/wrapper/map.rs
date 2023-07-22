@@ -1,7 +1,6 @@
 use std::{cell::Cell, fmt::Display};
 
 use serde::{ser::Impossible, Serialize, Serializer};
-use thiserror::Error;
 
 use crate::path::PathMapKey;
 use crate::ser::scope::{MapEntryAction, OnMapEntryActions};
@@ -133,6 +132,18 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
 
         self.hooks.path_push(map_key.into());
 
+        if let Some(replacement_value) = &replacement_value {
+            replacement_value
+                .check_if_can_serialize()
+                .or_else(|err| self.hooks.on_error::<S>(err))?;
+        }
+
+        if let Some(replacement_key) = &replacement_key {
+            replacement_key
+                .check_if_can_serialize()
+                .or_else(|err| self.hooks.on_error::<S>(err))?;
+        }
+
         let res = if replace_entry {
             if let Some(replacement_key) = &replacement_key {
                 self.serialize_map
@@ -190,7 +201,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 #[error("")]
 struct MapKeyCaptureError(PathMapKey);
 

@@ -84,6 +84,7 @@ impl PathMapKey {
             PrimitiveValue::None => PathMapKey::None(index),
             PrimitiveValue::UnitStruct(_) => PathMapKey::UnitStruct(index),
             PrimitiveValue::UnitVariant { .. } => PathMapKey::UnitVariant(index),
+            PrimitiveValue::NewtypeStruct(_) => PathMapKey::NewtypeStruct(index),
         }
     }
 

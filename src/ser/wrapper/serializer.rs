@@ -37,8 +37,10 @@ macro_rules! primitive_value_ctor {
 }
 
 macro_rules! wrap_primitive_serialize {
-    ($fn:ident, $variant:ident $(, $arg:ident : $type:ty)*) => {
-        fn $fn(self, $($arg: $type,)*) -> Result<Self::Ok, Self::Error> {
+    ($fn:ident, $variant:ident $(, $arg:ident : $type:ty)* $(=> $v:ident : $vt:ident)?) => {
+        fn $fn $(<$vt>)? (self, $($arg: $type,)* $($v: &$vt)?) -> Result<Self::Ok, Self::Error>
+        $(where $vt: Serialize + ?Sized)?
+        {
             let value = primitive_value_ctor!($variant $(, $arg)*);
             let value_action = match self.kind {
                 SerializableKind::Value => self
@@ -50,7 +52,7 @@ macro_rules! wrap_primitive_serialize {
             };
 
             match value_action {
-                OnValueAction::ContinueSerialization(s) => s.$fn($($arg,)*),
+                OnValueAction::ContinueSerialization(s) => s.$fn($($arg,)* $($v)?),
                 OnValueAction::ValueReplaced(r) => r,
             }
         }
@@ -93,22 +95,19 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         variant: &'static str
     );
 
+    wrap_primitive_serialize!(
+        serialize_newtype_struct,
+        NewtypeStruct,
+        name: &'static str
+        =>
+        value: T
+    );
+
     fn serialize_some<T: ?Sized>(self, v: &T) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
         self.serializer.serialize_some(v)
-    }
-
-    fn serialize_newtype_struct<T: ?Sized>(
-        self,
-        name: &'static str,
-        value: &T,
-    ) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
-        self.serializer.serialize_newtype_struct(name, value)
     }
 
     fn serialize_newtype_variant<T: ?Sized>(

@@ -4,7 +4,6 @@ use smallvec::SmallVec;
 
 use crate::{path::PathMapKey, Path, StaticPrimitiveValue};
 
-//TODO does it need to be pub?
 #[derive(Debug)]
 pub(crate) enum MapEntryAction {
     Retain(MapKeySelector),

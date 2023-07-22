@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
 use serde::Serialize;
-use serde_hooks::ser;
+use serde_hooks::{ser, StaticPrimitiveValue};
 
 #[derive(Serialize)]
 struct Payload {
@@ -119,6 +119,19 @@ fn test_replace_value() {
 
     let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(yaml, "foo: 42\nbar: 'a'\nbaz: -15\n");
+}
+
+#[test]
+fn test_replace_value_unserializable() {
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_struct(&self, st: &mut ser::StructScope) {
+            st.replace_value("baz", StaticPrimitiveValue::NewtypeStruct("STRUCT"));
+        }
+    }
+
+    let err = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap_err();
+    assert_eq!(err.to_string(), "Error at $.baz: value is not serializable: newtype STRUCT cannot be represented fully in PrimitiveValue");
 }
 
 #[test]

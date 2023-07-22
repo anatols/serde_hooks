@@ -4,6 +4,7 @@ use serde::{Serialize, Serializer};
 
 mod context;
 mod scope;
+mod value;
 mod wrapper;
 
 pub use scope::{ErrorScope, MapKeyScope, MapKeySelector, MapScope, StructScope, ValueScope};
@@ -47,6 +48,8 @@ pub enum HooksError {
     KeyNotFound(MapKeySelector),
     #[error("field \"{0}\" not found")]
     FieldNotFound(Cow<'static, str>),
+    #[error("value is not serializable: {0}")]
+    ValueNotSerializable(String),
 }
 
 pub fn hook<'s, 'h, T: Serialize + ?Sized, H: Hooks>(

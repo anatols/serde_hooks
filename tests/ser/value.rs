@@ -13,6 +13,9 @@ enum Enum {
 }
 
 #[derive(Serialize)]
+struct Newtype(());
+
+#[derive(Serialize)]
 struct Payload<'s, 'b> {
     val_bool: bool,
     val_i8: i8,
@@ -41,12 +44,10 @@ struct Payload<'s, 'b> {
     val_bytes_owned: Vec<u8>,
 
     val_unit: (),
-
     val_none: Option<()>,
-
     val_unit_struct: UnitStruct,
-
     val_unit_variant: Enum,
+    val_newtype: Newtype,
 }
 
 impl<'s, 'b> Payload<'s, 'b> {
@@ -74,6 +75,7 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_none: None,
             val_unit_struct: UnitStruct,
             val_unit_variant: Enum::UnitVariant,
+            val_newtype: Newtype(()),
         }
     }
 
@@ -146,7 +148,9 @@ fn test_values() {
                         variant_index: 0,
                         variant: "UnitVariant",
                     }),
-                ) => {}
+                )
+                | ("$.val_newtype", Value::Primitive(PrimitiveValue::NewtypeStruct("Newtype"))) => {
+                }
 
                 ("$.val_f32", Value::Primitive(PrimitiveValue::F32(v))) => {
                     assert_eq!(v.partial_cmp(&32.0f32), Some(Ordering::Equal));
