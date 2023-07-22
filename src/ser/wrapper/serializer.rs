@@ -85,8 +85,9 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     value_serialize!(serialize_str, Str, v: &str);
     value_serialize!(serialize_bytes, Bytes, v: &[u8]);
     value_serialize!(serialize_unit, Unit);
-    value_serialize!(serialize_none, None);
+
     value_serialize!(serialize_unit_struct, UnitStruct, name: &'static str);
+
     value_serialize!(
         serialize_unit_variant,
         UnitVariant,
@@ -103,26 +104,23 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         value: T
     );
 
-    fn serialize_some<T: ?Sized>(self, v: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
-        self.serializer.serialize_some(v)
-    }
+    value_serialize!(serialize_none, None);
+    value_serialize!(
+        serialize_some,
+        Some
+        =>
+        value: T
+    );
 
-    fn serialize_newtype_variant<T: ?Sized>(
-        self,
+    value_serialize!(
+        serialize_newtype_variant,
+        NewtypeVariant,
         name: &'static str,
         variant_index: u32,
-        variant: &'static str,
-        value: &T,
-    ) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
-        self.serializer
-            .serialize_newtype_variant(name, variant_index, variant, value)
-    }
+        variant: &'static str
+        =>
+        value: T
+    );
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         self.serializer.serialize_seq(len)

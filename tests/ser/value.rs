@@ -10,6 +10,7 @@ struct UnitStruct;
 #[derive(Serialize)]
 enum Enum {
     UnitVariant,
+    NewtypeVariant(()),
 }
 
 #[derive(Serialize)]
@@ -45,8 +46,10 @@ struct Payload<'s, 'b> {
 
     val_unit: (),
     val_none: Option<()>,
+    val_some: Option<()>,
     val_unit_struct: UnitStruct,
     val_unit_variant: Enum,
+    val_newtype_variant: Enum,
     val_newtype: Newtype,
 }
 
@@ -73,8 +76,10 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_bytes_owned: [3, 4, 5, 6].into(),
             val_unit: (),
             val_none: None,
+            val_some: Some(()),
             val_unit_struct: UnitStruct,
             val_unit_variant: Enum::UnitVariant,
+            val_newtype_variant: Enum::NewtypeVariant(()),
             val_newtype: Newtype(()),
         }
     }
@@ -137,6 +142,7 @@ fn test_values() {
                 )
                 | ("$.val_unit", Value::Primitive(PrimitiveValue::Unit))
                 | ("$.val_none", Value::Primitive(PrimitiveValue::None))
+                | ("$.val_some", Value::Primitive(PrimitiveValue::Some))
                 | (
                     "$.val_unit_struct",
                     Value::Primitive(PrimitiveValue::UnitStruct("UnitStruct")),
@@ -147,6 +153,14 @@ fn test_values() {
                         name: "Enum",
                         variant_index: 0,
                         variant: "UnitVariant",
+                    }),
+                )
+                | (
+                    "$.val_newtype_variant",
+                    Value::Primitive(PrimitiveValue::NewtypeVariant {
+                        name: "Enum",
+                        variant_index: 1,
+                        variant: "NewtypeVariant",
                     }),
                 )
                 | ("$.val_newtype", Value::Primitive(PrimitiveValue::NewtypeStruct("Newtype"))) => {

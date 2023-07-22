@@ -85,6 +85,15 @@ impl PathMapKey {
             PrimitiveValue::UnitStruct(_) => PathMapKey::UnitStruct(index),
             PrimitiveValue::UnitVariant { .. } => PathMapKey::UnitVariant(index),
             PrimitiveValue::NewtypeStruct(_) => PathMapKey::NewtypeStruct(index),
+            PrimitiveValue::Some => todo!(),
+            PrimitiveValue::NewtypeVariant { name, variant_index, variant } => todo!(),
+            PrimitiveValue::Seq(_) => todo!(),
+            PrimitiveValue::Tuple(_) => todo!(),
+            PrimitiveValue::TupleStruct { name, len } => todo!(),
+            PrimitiveValue::TupleVariant { name, variant_index, variant, len } => todo!(),
+            PrimitiveValue::Map(_) => todo!(),
+            PrimitiveValue::Struct { name, len } => todo!(),
+            PrimitiveValue::StructVariant { name, variant_index, variant, len } => todo!(),
         }
     }
 

@@ -19,6 +19,7 @@ pub enum PrimitiveValue<'v> {
     Str(Cow<'v, str>),
     Bytes(Cow<'v, [u8]>),
     Unit,
+    Some,
     None,
     UnitStruct(&'static str),
     UnitVariant {
@@ -27,18 +28,34 @@ pub enum PrimitiveValue<'v> {
         variant: &'static str,
     },
     NewtypeStruct(&'static str),
-    // NewtypeVariant {
-    //     name: &'static str,
-    //     variant_index: u32,
-    //     variant: &'static str,
-    // },
-    // Seq,
-    // Tuple,
-    // TupleStruct,
-    // TupleVariant,
-    // Map,
-    // Struct,
-    // StructVariant,
+    NewtypeVariant {
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+    },
+    Seq(Option<usize>),
+    Tuple(usize),
+    TupleStruct {
+        name: &'static str,
+        len: usize,
+    },
+    TupleVariant {
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    },
+    Map(Option<usize>),
+    Struct {
+        name: &'static str,
+        len: usize,
+    },
+    StructVariant {
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    },
 }
 
 pub type StaticPrimitiveValue = PrimitiveValue<'static>;
@@ -64,11 +81,48 @@ impl Display for PrimitiveValue<'_> {
             PrimitiveValue::Bytes(b) => f.write_fmt(format_args!("[{len} bytes]", len = b.len())),
             PrimitiveValue::Unit => f.write_str("()"),
             PrimitiveValue::None => f.write_str("None"),
+
             PrimitiveValue::UnitStruct(name) => f.write_fmt(format_args!("unit struct {name}")),
+
             PrimitiveValue::UnitVariant { name, variant, .. } => {
                 f.write_fmt(format_args!("{name}::{variant}"))
             }
+
             PrimitiveValue::NewtypeStruct(name) => f.write_fmt(format_args!("newtype {name}")),
+
+            PrimitiveValue::Some => f.write_str("Some"),
+
+            PrimitiveValue::NewtypeVariant { name, variant, .. } => {
+                f.write_fmt(format_args!("newtype {name}::{variant}"))
+            }
+
+            PrimitiveValue::Seq(len) => match len {
+                Some(len) => f.write_fmt(format_args!("[{len} items]")),
+                None => f.write_str("[? items]"),
+            },
+
+            PrimitiveValue::Tuple(len) => f.write_fmt(format_args!("({len} items)")),
+
+            PrimitiveValue::TupleStruct { name, len } => {
+                f.write_fmt(format_args!("{name}({len} items)"))
+            }
+
+            PrimitiveValue::TupleVariant {
+                name, variant, len, ..
+            } => f.write_fmt(format_args!("{name}::{variant}({len} items)")),
+
+            PrimitiveValue::Map(len) => match len {
+                Some(len) => f.write_fmt(format_args!("{{{len} entries}}")),
+                None => f.write_str("{? entries}"),
+            },
+
+            PrimitiveValue::Struct { name, len } => {
+                f.write_fmt(format_args!("{name}{{{len} fields}}"))
+            }
+
+            PrimitiveValue::StructVariant {
+                name, variant, len, ..
+            } => f.write_fmt(format_args!("{name}::{variant}{{{len} fields}}")),
         }
     }
 }
@@ -130,13 +184,4 @@ cow_value_from_type!(Bytes, [u8], Vec<u8>);
 #[derive(Debug)]
 pub enum Value<'v> {
     Primitive(PrimitiveValue<'v>),
-    // NewtypeStruct,
-    NewtypeVariant,
-    Seq,
-    Tuple,
-    TupleStruct,
-    TupleVariant,
-    Map,
-    Struct,
-    StructVariant,
 }
