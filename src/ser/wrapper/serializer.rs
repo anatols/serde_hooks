@@ -23,16 +23,16 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializerWrapper<'h, S, H> {
 
 macro_rules! value_ctor {
     ($variant:ident) => {
-        crate::Value::Primitive(crate::PrimitiveValue::$variant)
+        crate::Value::$variant
     };
     ($variant:ident, $arg:ident) => {
-        crate::Value::Primitive(crate::PrimitiveValue::$variant($arg.into()))
+        crate::Value::$variant($arg.into())
     };
     ($variant:ident, $arg0:ident $(, $arg:ident)+) => {
-        crate::Value::Primitive(crate::PrimitiveValue::$variant{
+        crate::Value::$variant{
             $arg0 : $arg0.into(),
             $($arg : $arg.into(),)*
-        })
+        }
     };
 }
 

@@ -3,7 +3,7 @@ use std::{
     fmt::{Debug, Display, Write},
 };
 
-use crate::{PrimitiveValue, StaticPrimitiveValue};
+use crate::{StaticValue, Value};
 
 #[derive(Debug, Default)]
 pub struct Path {
@@ -61,39 +61,50 @@ pub enum PathMapKey {
 }
 
 impl PathMapKey {
-    pub(crate) fn from_index_and_primitive_value(
-        index: usize,
-        primitive_value: StaticPrimitiveValue,
-    ) -> Self {
-        match primitive_value {
-            PrimitiveValue::Bool(v) => PathMapKey::Bool(index, v),
-            PrimitiveValue::I8(v) => PathMapKey::I8(index, v),
-            PrimitiveValue::I16(v) => PathMapKey::I16(index, v),
-            PrimitiveValue::I32(v) => PathMapKey::I32(index, v),
-            PrimitiveValue::I64(v) => PathMapKey::I64(index, v),
-            PrimitiveValue::U8(v) => PathMapKey::U8(index, v),
-            PrimitiveValue::U16(v) => PathMapKey::U16(index, v),
-            PrimitiveValue::U32(v) => PathMapKey::U32(index, v),
-            PrimitiveValue::U64(v) => PathMapKey::U64(index, v),
-            PrimitiveValue::F32(v) => PathMapKey::F32(index, v),
-            PrimitiveValue::F64(v) => PathMapKey::F64(index, v),
-            PrimitiveValue::Char(v) => PathMapKey::Char(index, v),
-            PrimitiveValue::Str(v) => PathMapKey::Str(index, v),
-            PrimitiveValue::Bytes(_) => PathMapKey::Bytes(index),
-            PrimitiveValue::Unit => PathMapKey::Unit(index),
-            PrimitiveValue::None => PathMapKey::None(index),
-            PrimitiveValue::UnitStruct(_) => PathMapKey::UnitStruct(index),
-            PrimitiveValue::UnitVariant { .. } => PathMapKey::UnitVariant(index),
-            PrimitiveValue::NewtypeStruct(_) => PathMapKey::NewtypeStruct(index),
-            PrimitiveValue::Some => todo!(),
-            PrimitiveValue::NewtypeVariant { name, variant_index, variant } => todo!(),
-            PrimitiveValue::Seq(_) => todo!(),
-            PrimitiveValue::Tuple(_) => todo!(),
-            PrimitiveValue::TupleStruct { name, len } => todo!(),
-            PrimitiveValue::TupleVariant { name, variant_index, variant, len } => todo!(),
-            PrimitiveValue::Map(_) => todo!(),
-            PrimitiveValue::Struct { name, len } => todo!(),
-            PrimitiveValue::StructVariant { name, variant_index, variant, len } => todo!(),
+    pub(crate) fn from_index_and_value(index: usize, value: StaticValue) -> Self {
+        match value {
+            Value::Bool(v) => PathMapKey::Bool(index, v),
+            Value::I8(v) => PathMapKey::I8(index, v),
+            Value::I16(v) => PathMapKey::I16(index, v),
+            Value::I32(v) => PathMapKey::I32(index, v),
+            Value::I64(v) => PathMapKey::I64(index, v),
+            Value::U8(v) => PathMapKey::U8(index, v),
+            Value::U16(v) => PathMapKey::U16(index, v),
+            Value::U32(v) => PathMapKey::U32(index, v),
+            Value::U64(v) => PathMapKey::U64(index, v),
+            Value::F32(v) => PathMapKey::F32(index, v),
+            Value::F64(v) => PathMapKey::F64(index, v),
+            Value::Char(v) => PathMapKey::Char(index, v),
+            Value::Str(v) => PathMapKey::Str(index, v),
+            Value::Bytes(_) => PathMapKey::Bytes(index),
+            Value::Unit => PathMapKey::Unit(index),
+            Value::None => PathMapKey::None(index),
+            Value::UnitStruct(_) => PathMapKey::UnitStruct(index),
+            Value::UnitVariant { .. } => PathMapKey::UnitVariant(index),
+            Value::NewtypeStruct(_) => PathMapKey::NewtypeStruct(index),
+            Value::Some => todo!(),
+            Value::NewtypeVariant {
+                name,
+                variant_index,
+                variant,
+            } => todo!(),
+            Value::Seq(_) => todo!(),
+            Value::Tuple(_) => todo!(),
+            Value::TupleStruct { name, len } => todo!(),
+            Value::TupleVariant {
+                name,
+                variant_index,
+                variant,
+                len,
+            } => todo!(),
+            Value::Map(_) => todo!(),
+            Value::Struct { name, len } => todo!(),
+            Value::StructVariant {
+                name,
+                variant_index,
+                variant,
+                len,
+            } => todo!(),
         }
     }
 
@@ -129,21 +140,21 @@ impl PathMapKey {
         }
     }
 
-    pub(crate) fn primitive_value(&self) -> Option<PrimitiveValue> {
+    pub(crate) fn value(&self) -> Option<Value> {
         match self {
-            PathMapKey::Bool(_, value) => Some(PrimitiveValue::Bool(*value)),
-            PathMapKey::I8(_, value) => Some(PrimitiveValue::I8(*value)),
-            PathMapKey::I16(_, value) => Some(PrimitiveValue::I16(*value)),
-            PathMapKey::I32(_, value) => Some(PrimitiveValue::I32(*value)),
-            PathMapKey::I64(_, value) => Some(PrimitiveValue::I64(*value)),
-            PathMapKey::U8(_, value) => Some(PrimitiveValue::U8(*value)),
-            PathMapKey::U16(_, value) => Some(PrimitiveValue::U16(*value)),
-            PathMapKey::U32(_, value) => Some(PrimitiveValue::U32(*value)),
-            PathMapKey::U64(_, value) => Some(PrimitiveValue::U64(*value)),
-            PathMapKey::F32(_, value) => Some(PrimitiveValue::F32(*value)),
-            PathMapKey::F64(_, value) => Some(PrimitiveValue::F64(*value)),
-            PathMapKey::Char(_, value) => Some(PrimitiveValue::Char(*value)),
-            PathMapKey::Str(_, value) => Some(PrimitiveValue::Str(value.clone())),
+            PathMapKey::Bool(_, value) => Some(Value::Bool(*value)),
+            PathMapKey::I8(_, value) => Some(Value::I8(*value)),
+            PathMapKey::I16(_, value) => Some(Value::I16(*value)),
+            PathMapKey::I32(_, value) => Some(Value::I32(*value)),
+            PathMapKey::I64(_, value) => Some(Value::I64(*value)),
+            PathMapKey::U8(_, value) => Some(Value::U8(*value)),
+            PathMapKey::U16(_, value) => Some(Value::U16(*value)),
+            PathMapKey::U32(_, value) => Some(Value::U32(*value)),
+            PathMapKey::U64(_, value) => Some(Value::U64(*value)),
+            PathMapKey::F32(_, value) => Some(Value::F32(*value)),
+            PathMapKey::F64(_, value) => Some(Value::F64(*value)),
+            PathMapKey::Char(_, value) => Some(Value::Char(*value)),
+            PathMapKey::Str(_, value) => Some(Value::Str(value.clone())),
             _ => None,
         }
     }
@@ -151,7 +162,7 @@ impl PathMapKey {
 
 impl Display for PathMapKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(value) = self.primitive_value() {
+        if let Some(value) = self.value() {
             Display::fmt(&value, f)
         } else {
             Display::fmt(&self.index(), f)

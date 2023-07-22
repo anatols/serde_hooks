@@ -1,9 +1,7 @@
 use std::{borrow::Cow, fmt::Display};
 
-use serde::{Serialize, Serializer};
-
 #[derive(Debug, Clone, PartialEq)]
-pub enum PrimitiveValue<'v> {
+pub enum Value<'v> {
     Bool(bool),
     I8(i8),
     I16(i16),
@@ -58,121 +56,117 @@ pub enum PrimitiveValue<'v> {
     },
 }
 
-pub type StaticPrimitiveValue = PrimitiveValue<'static>;
+pub type StaticValue = Value<'static>;
 
-impl Eq for PrimitiveValue<'_> {}
+impl Eq for Value<'_> {}
 
-impl Display for PrimitiveValue<'_> {
+impl Display for Value<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PrimitiveValue::Bool(v) => Display::fmt(v, f),
-            PrimitiveValue::I8(v) => Display::fmt(v, f),
-            PrimitiveValue::I16(v) => Display::fmt(v, f),
-            PrimitiveValue::I32(v) => Display::fmt(v, f),
-            PrimitiveValue::I64(v) => Display::fmt(v, f),
-            PrimitiveValue::U8(v) => Display::fmt(v, f),
-            PrimitiveValue::U16(v) => Display::fmt(v, f),
-            PrimitiveValue::U32(v) => Display::fmt(v, f),
-            PrimitiveValue::U64(v) => Display::fmt(v, f),
-            PrimitiveValue::F32(v) => Display::fmt(v, f),
-            PrimitiveValue::F64(v) => Display::fmt(v, f),
-            PrimitiveValue::Char(c) => f.write_fmt(format_args!("'{c}'")),
-            PrimitiveValue::Str(s) => f.write_fmt(format_args!("\"{s}\"")),
-            PrimitiveValue::Bytes(b) => f.write_fmt(format_args!("[{len} bytes]", len = b.len())),
-            PrimitiveValue::Unit => f.write_str("()"),
-            PrimitiveValue::None => f.write_str("None"),
+            Value::Bool(v) => Display::fmt(v, f),
+            Value::I8(v) => Display::fmt(v, f),
+            Value::I16(v) => Display::fmt(v, f),
+            Value::I32(v) => Display::fmt(v, f),
+            Value::I64(v) => Display::fmt(v, f),
+            Value::U8(v) => Display::fmt(v, f),
+            Value::U16(v) => Display::fmt(v, f),
+            Value::U32(v) => Display::fmt(v, f),
+            Value::U64(v) => Display::fmt(v, f),
+            Value::F32(v) => Display::fmt(v, f),
+            Value::F64(v) => Display::fmt(v, f),
+            Value::Char(c) => f.write_fmt(format_args!("'{c}'")),
+            Value::Str(s) => f.write_fmt(format_args!("\"{s}\"")),
+            Value::Bytes(b) => f.write_fmt(format_args!("[{len} bytes]", len = b.len())),
+            Value::Unit => f.write_str("()"),
+            Value::None => f.write_str("None"),
 
-            PrimitiveValue::UnitStruct(name) => f.write_fmt(format_args!("unit struct {name}")),
+            Value::UnitStruct(name) => f.write_fmt(format_args!("unit struct {name}")),
 
-            PrimitiveValue::UnitVariant { name, variant, .. } => {
+            Value::UnitVariant { name, variant, .. } => {
                 f.write_fmt(format_args!("{name}::{variant}"))
             }
 
-            PrimitiveValue::NewtypeStruct(name) => f.write_fmt(format_args!("newtype {name}")),
+            Value::NewtypeStruct(name) => f.write_fmt(format_args!("newtype {name}")),
 
-            PrimitiveValue::Some => f.write_str("Some"),
+            Value::Some => f.write_str("Some"),
 
-            PrimitiveValue::NewtypeVariant { name, variant, .. } => {
+            Value::NewtypeVariant { name, variant, .. } => {
                 f.write_fmt(format_args!("newtype {name}::{variant}"))
             }
 
-            PrimitiveValue::Seq(len) => match len {
+            Value::Seq(len) => match len {
                 Some(len) => f.write_fmt(format_args!("[{len} items]")),
                 None => f.write_str("[? items]"),
             },
 
-            PrimitiveValue::Tuple(len) => f.write_fmt(format_args!("({len} items)")),
+            Value::Tuple(len) => f.write_fmt(format_args!("({len} items)")),
 
-            PrimitiveValue::TupleStruct { name, len } => {
-                f.write_fmt(format_args!("{name}({len} items)"))
-            }
+            Value::TupleStruct { name, len } => f.write_fmt(format_args!("{name}({len} items)")),
 
-            PrimitiveValue::TupleVariant {
+            Value::TupleVariant {
                 name, variant, len, ..
             } => f.write_fmt(format_args!("{name}::{variant}({len} items)")),
 
-            PrimitiveValue::Map(len) => match len {
+            Value::Map(len) => match len {
                 Some(len) => f.write_fmt(format_args!("{{{len} entries}}")),
                 None => f.write_str("{? entries}"),
             },
 
-            PrimitiveValue::Struct { name, len } => {
-                f.write_fmt(format_args!("{name}{{{len} fields}}"))
-            }
+            Value::Struct { name, len } => f.write_fmt(format_args!("{name}{{{len} fields}}")),
 
-            PrimitiveValue::StructVariant {
+            Value::StructVariant {
                 name, variant, len, ..
             } => f.write_fmt(format_args!("{name}::{variant}{{{len} fields}}")),
         }
     }
 }
 
-macro_rules! primitive_value_from_type {
+macro_rules! impl_value_from_type {
     ($variant:ident,$type:ty) => {
-        impl From<$type> for PrimitiveValue<'_> {
+        impl From<$type> for Value<'_> {
             fn from(value: $type) -> Self {
-                PrimitiveValue::$variant(value)
+                Value::$variant(value)
             }
         }
     };
 }
 
-primitive_value_from_type!(Bool, bool);
-primitive_value_from_type!(I8, i8);
-primitive_value_from_type!(I16, i16);
-primitive_value_from_type!(I32, i32);
-primitive_value_from_type!(I64, i64);
-primitive_value_from_type!(U8, u8);
-primitive_value_from_type!(U16, u16);
-primitive_value_from_type!(U32, u32);
-primitive_value_from_type!(U64, u64);
-primitive_value_from_type!(F32, f32);
-primitive_value_from_type!(F64, f64);
-primitive_value_from_type!(Char, char);
+impl_value_from_type!(Bool, bool);
+impl_value_from_type!(I8, i8);
+impl_value_from_type!(I16, i16);
+impl_value_from_type!(I32, i32);
+impl_value_from_type!(I64, i64);
+impl_value_from_type!(U8, u8);
+impl_value_from_type!(U16, u16);
+impl_value_from_type!(U32, u32);
+impl_value_from_type!(U64, u64);
+impl_value_from_type!(F32, f32);
+impl_value_from_type!(F64, f64);
+impl_value_from_type!(Char, char);
 
-impl From<()> for PrimitiveValue<'_> {
+impl From<()> for Value<'_> {
     fn from(_: ()) -> Self {
-        PrimitiveValue::Unit
+        Value::Unit
     }
 }
 
 macro_rules! cow_value_from_type {
     ($variant:ident,$borrowed:ty,$owned:ty) => {
-        impl<'v> From<&'v $borrowed> for PrimitiveValue<'v> {
+        impl<'v> From<&'v $borrowed> for Value<'v> {
             fn from(value: &'v $borrowed) -> Self {
-                PrimitiveValue::$variant(Cow::Borrowed(value))
+                Value::$variant(Cow::Borrowed(value))
             }
         }
 
-        impl From<$owned> for PrimitiveValue<'_> {
+        impl From<$owned> for Value<'_> {
             fn from(value: $owned) -> Self {
-                PrimitiveValue::$variant(Cow::Owned(value))
+                Value::$variant(Cow::Owned(value))
             }
         }
 
-        impl<'v> From<Cow<'v, $borrowed>> for PrimitiveValue<'v> {
+        impl<'v> From<Cow<'v, $borrowed>> for Value<'v> {
             fn from(value: Cow<'v, $borrowed>) -> Self {
-                PrimitiveValue::$variant(value)
+                Value::$variant(value)
             }
         }
     };
@@ -180,8 +174,3 @@ macro_rules! cow_value_from_type {
 
 cow_value_from_type!(Str, str, String);
 cow_value_from_type!(Bytes, [u8], Vec<u8>);
-
-#[derive(Debug)]
-pub enum Value<'v> {
-    Primitive(PrimitiveValue<'v>),
-}

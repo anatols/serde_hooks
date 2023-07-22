@@ -5,7 +5,7 @@ use serde::{ser::Impossible, Serialize, Serializer};
 use crate::path::PathMapKey;
 use crate::ser::scope::{MapEntryAction, OnMapEntryActions};
 use crate::ser::{HooksError, MapKeySelector};
-use crate::PrimitiveValue;
+use crate::Value;
 
 use super::{SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
@@ -72,8 +72,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         let mut retain_entry = false;
         let mut skip_entry = false;
         let mut replace_entry = false;
-        let mut replacement_value: Option<PrimitiveValue> = None;
-        let mut replacement_key: Option<PrimitiveValue> = None;
+        let mut replacement_value: Option<Value> = None;
+        let mut replacement_key: Option<Value> = None;
         let mut error = None;
 
         self.actions.retain_mut(|a| {
@@ -113,8 +113,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                 MapEntryAction::ReplaceKey(k, v) => {
                     let matches = k.matches_path_key(&map_key);
                     if matches {
-                        map_key =
-                            PathMapKey::from_index_and_primitive_value(map_key.index(), v.clone());
+                        map_key = PathMapKey::from_index_and_value(map_key.index(), v.clone());
                         replacement_key = Some(v.clone());
                     }
                     !matches
@@ -175,8 +174,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
             match a {
                 MapEntryAction::Add(MapKeySelector::ByValue(k), v)
                 | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByValue(k), v) => {
-                    if let Some(primitive_value) = &v {
-                        self.serialize_map.serialize_entry(&k, primitive_value)?
+                    if let Some(value) = &v {
+                        self.serialize_map.serialize_entry(&k, value)?
                     } else {
                         self.serialize_map.serialize_entry(
                             &k,

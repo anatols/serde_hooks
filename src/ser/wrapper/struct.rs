@@ -4,7 +4,7 @@ use serde::{Serialize, Serializer};
 
 use crate::ser::scope::{OnStructFieldActions, StructFieldAction};
 use crate::ser::HooksError;
-use crate::PrimitiveValue;
+use crate::Value;
 
 use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
@@ -49,7 +49,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
         let mut field_key: Cow<'static, str> = key.into();
         let mut retain_field = false;
         let mut skip_field = false;
-        let mut replacement_value: Option<PrimitiveValue> = None;
+        let mut replacement_value: Option<Value> = None;
 
         self.actions.retain_mut(|a| match a {
             StructFieldAction::Retain(n) => {

@@ -6,4 +6,4 @@ mod value;
 
 pub use path::Path;
 
-pub use value::{PrimitiveValue, StaticPrimitiveValue, Value};
+pub use value::{StaticValue, Value};

@@ -2,16 +2,16 @@ use std::{borrow::Cow, fmt::Display};
 
 use smallvec::SmallVec;
 
-use crate::{path::PathMapKey, Path, StaticPrimitiveValue};
+use crate::{path::PathMapKey, Path, StaticValue};
 
 #[derive(Debug)]
 pub(crate) enum MapEntryAction {
     Retain(MapKeySelector),
     Skip(MapKeySelector),
-    Add(MapKeySelector, Option<StaticPrimitiveValue>),
-    Replace(MapKeySelector, Option<StaticPrimitiveValue>),
-    ReplaceOrAdd(MapKeySelector, Option<StaticPrimitiveValue>),
-    ReplaceKey(MapKeySelector, StaticPrimitiveValue),
+    Add(MapKeySelector, Option<StaticValue>),
+    Replace(MapKeySelector, Option<StaticValue>),
+    ReplaceOrAdd(MapKeySelector, Option<StaticValue>),
+    ReplaceKey(MapKeySelector, StaticValue),
 }
 
 pub(crate) type OnMapEntryActions = SmallVec<[MapEntryAction; 8]>;
@@ -56,7 +56,7 @@ impl<'p> MapScope<'p> {
     pub fn add_entry(
         &mut self,
         key: impl Into<MapKeySelector>,
-        value: impl Into<StaticPrimitiveValue>,
+        value: impl Into<StaticValue>,
     ) -> &mut Self {
         self.actions
             .push(MapEntryAction::Add(key.into(), Some(value.into())));
@@ -71,7 +71,7 @@ impl<'p> MapScope<'p> {
     pub fn add_or_replace_entry(
         &mut self,
         key: impl Into<MapKeySelector>,
-        new_value: impl Into<StaticPrimitiveValue>,
+        new_value: impl Into<StaticValue>,
     ) -> &mut Self {
         self.actions.push(MapEntryAction::ReplaceOrAdd(
             key.into(),
@@ -92,7 +92,7 @@ impl<'p> MapScope<'p> {
     pub fn replace_value(
         &mut self,
         key: impl Into<MapKeySelector>,
-        new_value: impl Into<StaticPrimitiveValue>,
+        new_value: impl Into<StaticValue>,
     ) -> &mut Self {
         self.actions
             .push(MapEntryAction::Replace(key.into(), Some(new_value.into())));
@@ -108,7 +108,7 @@ impl<'p> MapScope<'p> {
     pub fn replace_key(
         &mut self,
         key: impl Into<MapKeySelector>,
-        new_key: impl Into<StaticPrimitiveValue>,
+        new_key: impl Into<StaticValue>,
     ) -> &mut Self {
         self.actions
             .push(MapEntryAction::ReplaceKey(key.into(), new_key.into()));
@@ -131,14 +131,14 @@ impl<'p> MapScope<'p> {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MapKeySelector {
-    ByValue(StaticPrimitiveValue),
+    ByValue(StaticValue),
     ByIndex(usize),
 }
 
 impl MapKeySelector {
     pub(crate) fn matches_path_key(&self, key: &PathMapKey) -> bool {
         match self {
-            MapKeySelector::ByValue(v) => key.primitive_value().map(|kv| kv.eq(v)).unwrap_or(false),
+            MapKeySelector::ByValue(v) => key.value().map(|kv| kv.eq(v)).unwrap_or(false),
             MapKeySelector::ByIndex(i) => key.index() == *i,
         }
     }
@@ -153,7 +153,7 @@ impl Display for MapKeySelector {
     }
 }
 
-impl<T: Into<StaticPrimitiveValue>> From<T> for MapKeySelector {
+impl<T: Into<StaticValue>> From<T> for MapKeySelector {
     fn from(value: T) -> Self {
         MapKeySelector::ByValue(value.into())
     }

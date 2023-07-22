@@ -2,46 +2,46 @@ use std::fmt::Display;
 
 use serde::{ser::Impossible, Serialize, Serializer};
 
-use crate::PrimitiveValue;
+use crate::Value;
 
 use super::HooksError;
 
-impl Serialize for PrimitiveValue<'_> {
+impl Serialize for Value<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match self {
-            PrimitiveValue::Bool(v) => v.serialize(serializer),
-            PrimitiveValue::I8(v) => v.serialize(serializer),
-            PrimitiveValue::I16(v) => v.serialize(serializer),
-            PrimitiveValue::I32(v) => v.serialize(serializer),
-            PrimitiveValue::I64(v) => v.serialize(serializer),
-            PrimitiveValue::U8(v) => v.serialize(serializer),
-            PrimitiveValue::U16(v) => v.serialize(serializer),
-            PrimitiveValue::U32(v) => v.serialize(serializer),
-            PrimitiveValue::U64(v) => v.serialize(serializer),
-            PrimitiveValue::F32(v) => v.serialize(serializer),
-            PrimitiveValue::F64(v) => v.serialize(serializer),
-            PrimitiveValue::Char(v) => v.serialize(serializer),
-            PrimitiveValue::Str(v) => v.serialize(serializer),
-            PrimitiveValue::Bytes(v) => serializer.serialize_bytes(v),
-            PrimitiveValue::Unit => serializer.serialize_unit(),
-            PrimitiveValue::None => serializer.serialize_none(),
-            PrimitiveValue::UnitStruct(name) => serializer.serialize_unit_struct(name),
-            PrimitiveValue::UnitVariant {
+            Value::Bool(v) => v.serialize(serializer),
+            Value::I8(v) => v.serialize(serializer),
+            Value::I16(v) => v.serialize(serializer),
+            Value::I32(v) => v.serialize(serializer),
+            Value::I64(v) => v.serialize(serializer),
+            Value::U8(v) => v.serialize(serializer),
+            Value::U16(v) => v.serialize(serializer),
+            Value::U32(v) => v.serialize(serializer),
+            Value::U64(v) => v.serialize(serializer),
+            Value::F32(v) => v.serialize(serializer),
+            Value::F64(v) => v.serialize(serializer),
+            Value::Char(v) => v.serialize(serializer),
+            Value::Str(v) => v.serialize(serializer),
+            Value::Bytes(v) => serializer.serialize_bytes(v),
+            Value::Unit => serializer.serialize_unit(),
+            Value::None => serializer.serialize_none(),
+            Value::UnitStruct(name) => serializer.serialize_unit_struct(name),
+            Value::UnitVariant {
                 name,
                 variant_index,
                 variant,
             } => serializer.serialize_unit_variant(name, *variant_index, variant),
             _ => Err(serde::ser::Error::custom(format!(
-                "{self} cannot be represented fully in PrimitiveValue"
+                "{self} cannot be represented fully in Value"
             ))),
         }
     }
 }
 
-impl PrimitiveValue<'_> {
+impl Value<'_> {
     pub(crate) fn check_if_can_serialize(&self) -> Result<(), HooksError> {
         struct FauxSerializer;
 
