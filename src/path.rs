@@ -81,6 +81,7 @@ impl PathMapKey {
             PrimitiveValue::Str(v) => PathMapKey::Str(index, v),
             PrimitiveValue::Bytes(_) => PathMapKey::Bytes(index),
             PrimitiveValue::Unit => PathMapKey::Unit(index),
+            PrimitiveValue::None => PathMapKey::None(index),
         }
     }
 

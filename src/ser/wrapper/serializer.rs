@@ -77,10 +77,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     wrap_primitive_serialize!(serialize_str, Str, v: &str);
     wrap_primitive_serialize!(serialize_bytes, Bytes, v: &[u8]);
     wrap_primitive_serialize!(serialize_unit, Unit);
-
-    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        self.serializer.serialize_none()
-    }
+    wrap_primitive_serialize!(serialize_none, None);
 
     fn serialize_some<T: ?Sized>(self, v: &T) -> Result<Self::Ok, Self::Error>
     where

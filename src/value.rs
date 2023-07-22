@@ -20,6 +20,7 @@ pub enum PrimitiveValue<'v> {
     Str(Cow<'v, str>),
     Bytes(Cow<'v, [u8]>),
     Unit,
+    None,
 }
 
 pub type StaticPrimitiveValue = PrimitiveValue<'static>;
@@ -47,6 +48,7 @@ impl Serialize for PrimitiveValue<'_> {
             PrimitiveValue::Str(v) => v.serialize(serializer),
             PrimitiveValue::Bytes(v) => serializer.serialize_bytes(v),
             PrimitiveValue::Unit => serializer.serialize_unit(),
+            PrimitiveValue::None => serializer.serialize_none(),
         }
     }
 }
@@ -69,6 +71,7 @@ impl Display for PrimitiveValue<'_> {
             PrimitiveValue::Str(s) => f.write_fmt(format_args!("\"{s}\"")),
             PrimitiveValue::Bytes(b) => f.write_fmt(format_args!("[{len} bytes]", len = b.len())),
             PrimitiveValue::Unit => f.write_str("()"),
+            PrimitiveValue::None => f.write_str("None"),
         }
     }
 }
@@ -130,7 +133,6 @@ cow_value_from_type!(Bytes, [u8], Vec<u8>);
 #[derive(Debug)]
 pub enum Value<'v> {
     Primitive(PrimitiveValue<'v>),
-    None,
     UnitStruct,
     UnitVariant,
     NewtypeStruct,

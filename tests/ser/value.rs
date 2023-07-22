@@ -33,6 +33,8 @@ struct Payload<'s, 'b> {
     val_bytes_owned: Vec<u8>,
 
     val_unit: (),
+
+    val_none: Option<()>,
 }
 
 impl<'s, 'b> Payload<'s, 'b> {
@@ -57,6 +59,7 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_bytes_static: &[2, 3, 4],
             val_bytes_owned: [3, 4, 5, 6].into(),
             val_unit: (),
+            val_none: None,
         }
     }
 
@@ -116,7 +119,8 @@ fn test_values() {
                     "$.val_bytes_owned",
                     Value::Primitive(PrimitiveValue::Bytes(Cow::Borrowed(&[3, 4, 5, 6]))),
                 )
-                | ("$.val_unit", Value::Primitive(PrimitiveValue::Unit)) => {}
+                | ("$.val_unit", Value::Primitive(PrimitiveValue::Unit))
+                | ("$.val_none", Value::Primitive(PrimitiveValue::None)) => {}
 
                 ("$.val_f32", Value::Primitive(PrimitiveValue::F32(v))) => {
                     assert_eq!(v.partial_cmp(&32.0f32), Some(Ordering::Equal));
