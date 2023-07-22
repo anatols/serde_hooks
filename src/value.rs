@@ -4,7 +4,7 @@ use serde::{Serialize, Serializer};
 
 #[derive(Debug, Clone, PartialEq)]
 //TODO should this include None, Unit, UnitStruct?
-pub enum PrimitiveValue {
+pub enum PrimitiveValue<'v> {
     Bool(bool),
     I8(i8),
     I16(i16),
@@ -17,12 +17,14 @@ pub enum PrimitiveValue {
     F32(f32),
     F64(f64),
     Char(char),
-    Str(Cow<'static, str>),
+    Str(Cow<'v, str>),
 }
 
-impl Eq for PrimitiveValue {}
+pub type StaticPrimitiveValue = PrimitiveValue<'static>;
 
-impl Serialize for PrimitiveValue {
+impl Eq for PrimitiveValue<'_> {}
+
+impl Serialize for PrimitiveValue<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -45,7 +47,7 @@ impl Serialize for PrimitiveValue {
     }
 }
 
-impl Display for PrimitiveValue {
+impl Display for PrimitiveValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PrimitiveValue::Bool(v) => Display::fmt(v, f),
@@ -65,27 +67,27 @@ impl Display for PrimitiveValue {
     }
 }
 
-impl From<&'static str> for PrimitiveValue {
-    fn from(value: &'static str) -> Self {
-        PrimitiveValue::Str(value.into())
+impl<'v> From<&'v str> for PrimitiveValue<'v> {
+    fn from(value: &'v str) -> Self {
+        PrimitiveValue::Str(Cow::Borrowed(value))
     }
 }
 
-impl From<&String> for PrimitiveValue {
-    fn from(value: &String) -> Self {
-        PrimitiveValue::Str(value.clone().into())
-    }
-}
-
-impl From<String> for PrimitiveValue {
+impl From<String> for PrimitiveValue<'_> {
     fn from(value: String) -> Self {
-        PrimitiveValue::Str(value.into())
+        PrimitiveValue::Str(Cow::Owned(value))
+    }
+}
+
+impl<'v> From<Cow<'v, str>> for PrimitiveValue<'v> {
+    fn from(value: Cow<'v, str>) -> Self {
+        PrimitiveValue::Str(value)
     }
 }
 
 macro_rules! primitive_value_from_type {
     ($variant:ident,$type:ty) => {
-        impl From<$type> for PrimitiveValue {
+        impl From<$type> for PrimitiveValue<'_> {
             fn from(value: $type) -> Self {
                 PrimitiveValue::$variant(value)
             }
@@ -107,8 +109,8 @@ primitive_value_from_type!(F64, f64);
 primitive_value_from_type!(Char, char);
 
 #[derive(Debug)]
-pub enum Value {
-    Primitive(PrimitiveValue),
+pub enum Value<'v> {
+    Primitive(PrimitiveValue<'v>),
     Bytes,
     None,
     Unit,

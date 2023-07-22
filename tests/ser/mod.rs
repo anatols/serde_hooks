@@ -13,9 +13,9 @@ mock! {
         fn end(&self);
         fn on_error<'p>(&self, err: &mut serde_hooks::ser::ErrorScope<'p>);
         fn on_map<'p>(&self, map: &mut serde_hooks::ser::MapScope<'p>);
-        fn on_map_key(&self, path: &Path, value: &Value);
+        // fn on_map_key(&self, path: &Path, value: &Value);
         fn on_struct<'p>(&self, st: &mut serde_hooks::ser::StructScope<'p>);
-        fn on_value(&self, path: &Path, value: &Value);
+        // fn on_value(&self, path: &Path, value: &Value);
     }
 }
 
@@ -37,7 +37,8 @@ impl Hooks for MockHooks {
     }
 
     fn on_map_key<S: Serializer>(&self, map_key: &mut MapKeyScope<S>) {
-        MockHooks::on_map_key(self, map_key.path(), map_key.value())
+        //TODO
+        // MockHooks::on_map_key(self, map_key.path(), map_key.value())
     }
 
     fn on_struct(&self, st: &mut StructScope) {
@@ -45,6 +46,7 @@ impl Hooks for MockHooks {
     }
 
     fn on_value<S: Serializer>(&self, value: &mut ValueScope<S>) {
-        MockHooks::on_value(self, value.path(), value.value())
+        //TODO
+        // MockHooks::on_value(self, value.path(), value.value())
     }
 }

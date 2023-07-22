@@ -3,7 +3,7 @@ use std::{
     fmt::{Debug, Display, Write},
 };
 
-use crate::PrimitiveValue;
+use crate::{PrimitiveValue, StaticPrimitiveValue};
 
 #[derive(Debug, Default)]
 pub struct Path {
@@ -63,7 +63,7 @@ pub enum PathMapKey {
 impl PathMapKey {
     pub(crate) fn from_index_and_primitive_value(
         index: usize,
-        primitive_value: PrimitiveValue,
+        primitive_value: StaticPrimitiveValue,
     ) -> Self {
         match primitive_value {
             PrimitiveValue::Bool(v) => PathMapKey::Bool(index, v),

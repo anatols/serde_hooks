@@ -7,14 +7,14 @@ pub(crate) enum OnValueAction<S: Serializer> {
     ValueReplaced(Result<S::Ok, S::Error>),
 }
 
-pub struct ValueScope<'p, S: Serializer> {
+pub struct ValueScope<'p, 'v, S: Serializer> {
     path: &'p Path,
     action: Option<OnValueAction<S>>,
-    value: Value,
+    value: Value<'v>,
 }
 
-impl<'p, S: Serializer> ValueScope<'p, S> {
-    pub(crate) fn new(path: &'p Path, serializer: S, value: Value) -> Self {
+impl<'p, 'v, S: Serializer> ValueScope<'p, 'v, S> {
+    pub(crate) fn new(path: &'p Path, serializer: S, value: Value<'v>) -> Self {
         Self {
             path,
             action: Some(OnValueAction::ContinueSerialization(serializer)),

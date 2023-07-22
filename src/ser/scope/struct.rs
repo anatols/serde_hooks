@@ -2,14 +2,14 @@ use std::borrow::Cow;
 
 use smallvec::SmallVec;
 
-use crate::{Path, PrimitiveValue};
+use crate::{Path, StaticPrimitiveValue};
 
 #[derive(Debug)]
 pub(crate) enum StructFieldAction {
     Retain(Cow<'static, str>),
     Skip(Cow<'static, str>),
     Rename(Cow<'static, str>, Cow<'static, str>),
-    ReplaceValue(Cow<'static, str>, PrimitiveValue),
+    ReplaceValue(Cow<'static, str>, StaticPrimitiveValue),
 }
 
 pub(crate) type OnStructFieldActions = SmallVec<[StructFieldAction; 8]>;
@@ -70,7 +70,7 @@ impl<'p> StructScope<'p> {
     pub fn replace_value(
         &mut self,
         key: impl Into<Cow<'static, str>>,
-        new_value: impl Into<PrimitiveValue>,
+        new_value: impl Into<StaticPrimitiveValue>,
     ) -> &mut Self {
         self.actions.push(StructFieldAction::ReplaceValue(
             key.into(),

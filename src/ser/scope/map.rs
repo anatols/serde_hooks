@@ -1,18 +1,18 @@
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
 use smallvec::SmallVec;
 
-use crate::{path::PathMapKey, Path, PrimitiveValue};
+use crate::{path::PathMapKey, Path, StaticPrimitiveValue};
 
 //TODO does it need to be pub?
 #[derive(Debug)]
 pub(crate) enum MapEntryAction {
     Retain(MapKeySelector),
     Skip(MapKeySelector),
-    Add(MapKeySelector, Option<PrimitiveValue>),
-    Replace(MapKeySelector, Option<PrimitiveValue>),
-    ReplaceOrAdd(MapKeySelector, Option<PrimitiveValue>),
-    ReplaceKey(MapKeySelector, PrimitiveValue),
+    Add(MapKeySelector, Option<StaticPrimitiveValue>),
+    Replace(MapKeySelector, Option<StaticPrimitiveValue>),
+    ReplaceOrAdd(MapKeySelector, Option<StaticPrimitiveValue>),
+    ReplaceKey(MapKeySelector, StaticPrimitiveValue),
 }
 
 pub(crate) type OnMapEntryActions = SmallVec<[MapEntryAction; 8]>;
@@ -57,10 +57,12 @@ impl<'p> MapScope<'p> {
     pub fn add_entry(
         &mut self,
         key: impl Into<MapKeySelector>,
-        value: impl Into<PrimitiveValue>,
+        value: impl Into<StaticPrimitiveValue>,
     ) -> &mut Self {
-        self.actions
-            .push(MapEntryAction::Add(key.into(), Some(value.into())));
+        self.actions.push(MapEntryAction::Add(
+            key.into(),
+            Some(value.into()),
+        ));
         self
     }
 
@@ -72,7 +74,7 @@ impl<'p> MapScope<'p> {
     pub fn add_or_replace_entry(
         &mut self,
         key: impl Into<MapKeySelector>,
-        new_value: impl Into<PrimitiveValue>,
+        new_value: impl Into<StaticPrimitiveValue>,
     ) -> &mut Self {
         self.actions.push(MapEntryAction::ReplaceOrAdd(
             key.into(),
@@ -93,10 +95,12 @@ impl<'p> MapScope<'p> {
     pub fn replace_value(
         &mut self,
         key: impl Into<MapKeySelector>,
-        new_value: impl Into<PrimitiveValue>,
+        new_value: impl Into<StaticPrimitiveValue>,
     ) -> &mut Self {
-        self.actions
-            .push(MapEntryAction::Replace(key.into(), Some(new_value.into())));
+        self.actions.push(MapEntryAction::Replace(
+            key.into(),
+            Some(new_value.into()),
+        ));
         self
     }
 
@@ -109,18 +113,24 @@ impl<'p> MapScope<'p> {
     pub fn replace_key(
         &mut self,
         key: impl Into<MapKeySelector>,
-        new_key: impl Into<PrimitiveValue>,
+        new_key: impl Into<StaticPrimitiveValue>,
     ) -> &mut Self {
-        self.actions
-            .push(MapEntryAction::ReplaceKey(key.into(), new_key.into()));
+        self.actions.push(MapEntryAction::ReplaceKey(
+            key.into(),
+            new_key.into(),
+        ));
         self
     }
 
     //TODO play better with cows, no need to do to_owned all for &'static str
-    pub fn rename_key(&mut self, key: &str, new_key: &str) -> &mut Self {
+    pub fn rename_key(
+        &mut self,
+        key: impl Into<MapKeySelector>,
+        new_key: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
         self.actions.push(MapEntryAction::ReplaceKey(
-            key.to_owned().into(),
-            new_key.to_owned().into(),
+            key.into(),
+            new_key.into().into(),
         ));
         self
     }
@@ -128,7 +138,7 @@ impl<'p> MapScope<'p> {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MapKeySelector {
-    ByValue(PrimitiveValue),
+    ByValue(StaticPrimitiveValue),
     ByIndex(usize),
 }
 
@@ -150,7 +160,7 @@ impl Display for MapKeySelector {
     }
 }
 
-impl<T: Into<PrimitiveValue>> From<T> for MapKeySelector {
+impl<T: Into<StaticPrimitiveValue>> From<T> for MapKeySelector {
     fn from(value: T) -> Self {
         MapKeySelector::ByValue(value.into())
     }

@@ -27,11 +27,11 @@ macro_rules! wrap_primitive_serialize {
             let value_action = match self.kind {
                 SerializableKind::Value => self.hooks.on_value(
                     self.serializer,
-                    crate::Value::Primitive(v.to_owned().into()),
+                    crate::Value::Primitive(v.into()),
                 ),
                 SerializableKind::MapKey => self.hooks.on_map_key(
                     self.serializer,
-                    crate::Value::Primitive(v.to_owned().into()),
+                    crate::Value::Primitive(v.into()),
                 ),
             };
 
