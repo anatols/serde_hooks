@@ -191,3 +191,22 @@ fn test_values() {
         hooks.fields_to_expect.borrow()
     );
 }
+
+#[test]
+fn test_replace() {
+    let val_str = "str".to_string();
+    let val_bytes: Vec<u8> = vec![1, 2];
+
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_value<S: serde::Serializer>(&self, value: &mut ser::ValueScope<S>) {
+            if !value.path().segments().is_empty() {
+                value.replace(&format!("R {}", value.path().to_string()));
+            }
+        }
+    }
+
+    let json =
+        serde_json::to_string(&ser::hook(&Payload::new(&val_str, &val_bytes), &Hooks)).unwrap();
+    assert_eq!(json, "{\"val_bool\":\"R val_bool\",\"val_i8\":\"R val_i8\",\"val_i16\":\"R val_i16\",\"val_i32\":\"R val_i32\",\"val_i64\":\"R val_i64\",\"val_u8\":\"R val_u8\",\"val_u16\":\"R val_u16\",\"val_u32\":\"R val_u32\",\"val_u64\":\"R val_u64\",\"val_f32\":\"R val_f32\",\"val_f64\":\"R val_f64\",\"val_char\":\"R val_char\",\"val_str\":\"R val_str\",\"val_str_static\":\"R val_str_static\",\"val_str_owned\":\"R val_str_owned\",\"val_bytes\":\"R val_bytes\",\"val_bytes_static\":\"R val_bytes_static\",\"val_bytes_owned\":\"R val_bytes_owned\",\"val_unit\":\"R val_unit\",\"val_none\":\"R val_none\",\"val_some\":\"R val_some\",\"val_unit_struct\":\"R val_unit_struct\",\"val_struct\":\"R val_struct\",\"val_unit_variant\":\"R val_unit_variant\",\"val_newtype_variant\":\"R val_newtype_variant\",\"val_newtype\":\"R val_newtype\"}");
+}
