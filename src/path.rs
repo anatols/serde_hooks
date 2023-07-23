@@ -15,6 +15,10 @@ impl Path {
     pub(crate) fn pop_segment(&mut self) {
         self.segments.pop().expect("unbalanced pop_segment");
     }
+
+    pub fn segments(&self) -> &[PathSegment] {
+        &self.segments
+    }
 }
 
 impl ToString for Path {
