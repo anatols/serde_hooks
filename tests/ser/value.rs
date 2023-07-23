@@ -8,6 +8,11 @@ use serde_hooks::ser;
 struct UnitStruct;
 
 #[derive(Serialize)]
+struct Struct {
+    struct_val: (),
+}
+
+#[derive(Serialize)]
 enum Enum {
     UnitVariant,
     NewtypeVariant(()),
@@ -47,7 +52,10 @@ struct Payload<'s, 'b> {
     val_unit: (),
     val_none: Option<()>,
     val_some: Option<()>,
+
     val_unit_struct: UnitStruct,
+    val_struct: Struct,
+
     val_unit_variant: Enum,
     val_newtype_variant: Enum,
     val_newtype: Newtype,
@@ -78,6 +86,7 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_none: None,
             val_some: Some(()),
             val_unit_struct: UnitStruct,
+            val_struct: Struct { struct_val: () },
             val_unit_variant: Enum::UnitVariant,
             val_newtype_variant: Enum::NewtypeVariant(()),
             val_newtype: Newtype(()),
@@ -109,7 +118,13 @@ fn test_values() {
             // Note, all owned values will be received here as borrowed, just
             // with their own lifetimes
             match (path.as_str(), value.value()) {
-                ("$.val_bool", Value::Bool(true))
+                (
+                    "$",
+                    Value::Struct {
+                        name: "Payload", ..
+                    },
+                )
+                | ("$.val_bool", Value::Bool(true))
                 | ("$.val_i8", Value::I8(-8))
                 | ("$.val_i16", Value::I16(-16))
                 | ("$.val_i32", Value::I32(-32))
@@ -129,6 +144,14 @@ fn test_values() {
                 | ("$.val_none", Value::None)
                 | ("$.val_some", Value::Some)
                 | ("$.val_unit_struct", Value::UnitStruct("UnitStruct"))
+                | (
+                    "$.val_struct",
+                    Value::Struct {
+                        name: "Struct",
+                        len: 1,
+                    },
+                )
+                | ("$.val_struct.struct_val", _)
                 | (
                     "$.val_unit_variant",
                     Value::UnitVariant {

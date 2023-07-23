@@ -36,21 +36,25 @@ macro_rules! value_ctor {
     };
 }
 
+macro_rules! on_value_callback {
+    ($self:ident $variant:ident $(, $arg:ident : $type:ty)*) => {
+        match $self.kind {
+            SerializableKind::Value => $self
+                .hooks
+                .on_value($self.serializer, value_ctor!($variant $(, $arg)*)),
+            SerializableKind::MapKey => $self
+                .hooks
+                .on_map_key($self.serializer, value_ctor!($variant $(, $arg)*)),
+        }
+    }
+}
+
 macro_rules! value_serialize {
     ($fn:ident, $variant:ident $(, $arg:ident : $type:ty)* $(=> $v:ident : $vt:ident)?) => {
         fn $fn $(<$vt>)? (self, $($arg: $type,)* $($v: &$vt)?) -> Result<Self::Ok, Self::Error>
         $(where $vt: Serialize + ?Sized)?
         {
-            let value = value_ctor!($variant $(, $arg)*);
-            let value_action = match self.kind {
-                SerializableKind::Value => self
-                    .hooks
-                    .on_value(self.serializer, value),
-                SerializableKind::MapKey => self
-                    .hooks
-                    .on_map_key(self.serializer, value),
-            };
-
+            let value_action = on_value_callback!(self $variant $(, $arg : $type)*);
             match value_action {
                 OnValueAction::ContinueSerialization(s) => s.$fn($($arg,)* $($v)?),
                 OnValueAction::ValueReplaced(r) => r,
@@ -163,14 +167,19 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        println!("serialize_struct {name} {len}");
-
-        let actions = self.hooks.on_struct(len, name);
-        self.serializer
-            .serialize_struct(name, len)
-            .map(|serialize_struct| {
-                SerializeStructWrapper::new(serialize_struct, self.hooks, actions)
-            })
+        let value_action = on_value_callback!(self Struct,
+            name: &'static str,
+            len: usize
+        );
+        match value_action {
+            OnValueAction::ValueReplaced(r) => Ok(SerializeStructWrapper::new_skipped(r)),
+            OnValueAction::ContinueSerialization(s) => {
+                let actions = self.hooks.on_struct(len, name);
+                s.serialize_struct(name, len).map(|serialize_struct| {
+                    SerializeStructWrapper::new_wrapped(serialize_struct, self.hooks, actions)
+                })
+            }
+        }
     }
 
     fn serialize_struct_variant(
