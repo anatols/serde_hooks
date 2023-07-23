@@ -136,26 +136,6 @@ fn test_replace_value_unserializable() {
 
 #[test]
 fn test_error() {
-    // let mut hooks = MockHooks::new();
-    // hooks.expect_start().return_const(());
-    // hooks.expect_end().return_const(());
-    // hooks
-    //     .expect_on_struct()
-    //     .return_once(|st: &mut ser::StructScope| {
-    //         st.retain_field("invalid");
-    //     });
-
-    // hooks
-    //     .expect_on_error()
-    //     .return_once(|err: &mut ser::ErrorScope| {
-    //         assert_eq!(err.path().to_string(), "$");
-    //         assert_eq!(
-    //             *err.error(),
-    //             ser::HooksError::FieldNotFound("invalid".into())
-    //         );
-    //         err.propagate();
-    //     });
-
     struct Hooks {
         on_error_called: Cell<bool>,
     }
