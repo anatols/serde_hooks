@@ -19,10 +19,21 @@ impl Path {
 
 impl ToString for Path {
     fn to_string(&self) -> String {
-        self.segments.iter().fold("$".to_string(), |mut acc, item| {
-            write!(&mut acc, "{item}").expect("path concat failed");
-            acc
-        })
+        self.segments
+            .iter()
+            .fold(String::default(), |mut acc, item| {
+                match item {
+                    PathSegment::StructField(_) => {
+                        if acc.is_empty() {
+                            write!(&mut acc, "{item}").expect("path concat failed");
+                        } else {
+                            write!(&mut acc, ".{item}").expect("path concat failed");
+                        }
+                    }
+                    _ => write!(&mut acc, "{item}").expect("path concat failed"),
+                }
+                acc
+            })
     }
 }
 
@@ -84,7 +95,7 @@ impl Display for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PathSegment::MapKey(key) => f.write_fmt(format_args!("[{key}]")),
-            PathSegment::StructField(field_name) => f.write_fmt(format_args!(".{field_name}")),
+            PathSegment::StructField(field_name) => f.write_str(field_name),
             PathSegment::SeqIndex(index) => f.write_fmt(format_args!("[{index}]")),
         }
     }

@@ -47,7 +47,7 @@ impl<'p> ErrorScope<'p> {
 
     fn format_error_message(&self) -> String {
         format!(
-            "Error at {path}: {err}",
+            "Error at path '{path}': {err}",
             path = self.path.to_string(),
             err = self.error,
         )

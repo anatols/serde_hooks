@@ -38,11 +38,11 @@ fn test_struct_traversing() {
         fn on_struct(&self, st: &mut ser::StructScope) {
             //TODO use mock to ensure this is called
             match st.path().to_string().as_str() {
-                "$" => {
+                "" => {
                     assert_eq!(st.struct_name(), "Outer");
                     assert_eq!(st.struct_len(), 2);
                 }
-                "$.payload" => {
+                "payload" => {
                     assert_eq!(st.struct_name(), "Payload");
                     assert_eq!(st.struct_len(), 3);
                 }
@@ -131,7 +131,7 @@ fn test_replace_value_unserializable() {
     }
 
     let err = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap_err();
-    assert_eq!(err.to_string(), "Error at $.baz: value is not serializable: newtype STRUCT cannot be represented fully in Value");
+    assert_eq!(err.to_string(), "Error at path 'baz': value is not serializable: newtype STRUCT cannot be represented fully in Value");
 }
 
 #[test]
@@ -167,7 +167,7 @@ fn test_error() {
 
         fn on_error(&self, err: &mut ser::ErrorScope) {
             //TODO use mock to ensure this is called
-            assert_eq!(err.path().to_string(), "$");
+            assert_eq!(err.path().to_string(), "");
             assert_eq!(
                 *err.error(),
                 ser::HooksError::FieldNotFound("invalid".into())
