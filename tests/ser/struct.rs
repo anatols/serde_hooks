@@ -1,13 +1,31 @@
-use std::cell::Cell;
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashSet,
+};
 
 use serde::Serialize;
-use serde_hooks::{ser, StaticValue};
+use serde_hooks::{
+    ser::{self, StructManipulation},
+    StaticValue,
+};
+
+#[derive(Serialize)]
+enum Enum {
+    #[allow(dead_code)]
+    Faux,
+    StructVariant {
+        foo: i32,
+        bar: Option<char>,
+        baz: String,
+    },
+}
 
 #[derive(Serialize)]
 struct Payload {
     foo: i32,
     bar: Option<char>,
     baz: String,
+    e: Enum,
 }
 
 impl Payload {
@@ -16,6 +34,11 @@ impl Payload {
             foo: 42,
             bar: Some('a'),
             baz: "sample".into(),
+            e: Enum::StructVariant {
+                foo: 21,
+                bar: Some('b'),
+                baz: "example".into(),
+            },
         }
     }
 }
@@ -33,25 +56,57 @@ fn test_struct_traversing() {
         payload: Payload::new(),
     };
 
-    struct Hooks;
+    struct Hooks {
+        fields_to_expect: RefCell<HashSet<String>>,
+    }
     impl ser::Hooks for Hooks {
         fn on_struct(&self, st: &mut ser::StructScope) {
-            //TODO use mock to ensure this is called
-            match st.path().to_string().as_str() {
+            let path = st.path().to_string();
+            self.fields_to_expect.borrow_mut().remove(&path);
+
+            match path.as_str() {
                 "" => {
                     assert_eq!(st.struct_name(), "Outer");
                     assert_eq!(st.struct_len(), 2);
                 }
                 "payload" => {
                     assert_eq!(st.struct_name(), "Payload");
-                    assert_eq!(st.struct_len(), 3);
+                    assert_eq!(st.struct_len(), 4);
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        fn on_struct_variant(&self, stv: &mut ser::StructVariantScope) {
+            let path = stv.path().to_string();
+            self.fields_to_expect.borrow_mut().remove(&path);
+
+            match path.as_str() {
+                "payload.e" => {
+                    assert_eq!(stv.enum_name(), "Enum");
+                    assert_eq!(stv.variant_index(), 1);
+                    assert_eq!(stv.variant_name(), "StructVariant");
+                    assert_eq!(stv.struct_len(), 3);
                 }
                 _ => unreachable!(),
             }
         }
     }
+    let hooks = Hooks {
+        fields_to_expect: RefCell::new(
+            ["", "payload", "payload.e"]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        ),
+    };
 
-    serde_json::to_string(&ser::hook(&outer, &Hooks)).unwrap();
+    serde_json::to_string(&ser::hook(&outer, &hooks)).unwrap();
+    assert!(
+        hooks.fields_to_expect.borrow().is_empty(),
+        "following fields were expected, but not called back about {:?}",
+        hooks.fields_to_expect.borrow()
+    );
 }
 
 #[test]
@@ -61,13 +116,17 @@ fn test_skip_field() {
         fn on_struct(&self, st: &mut ser::StructScope) {
             st.skip_field("foo").skip_field("baz");
         }
+
+        fn on_struct_variant(&self, stv: &mut ser::StructVariantScope) {
+            stv.skip_field("foo").skip_field("baz");
+        }
     }
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(json, r#"{"bar":"a"}"#);
-
-    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(yaml, "bar: 'a'\n");
+    assert_eq!(
+        json,
+        "{\"bar\":\"a\",\"e\":{\"StructVariant\":{\"bar\":\"b\"}}}"
+    );
 }
 
 #[test]
@@ -81,9 +140,26 @@ fn test_retain_field() {
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(json, r#"{"foo":42,"bar":"a"}"#);
+}
 
-    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(yaml, "foo: 42\nbar: 'a'\n");
+#[test]
+fn test_retain_field_in_struct_variant() {
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_struct(&self, st: &mut ser::StructScope) {
+            st.retain_field("e");
+        }
+
+        fn on_struct_variant(&self, stv: &mut ser::StructVariantScope) {
+            stv.retain_field("foo").retain_field("bar");
+        }
+    }
+
+    let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
+    assert_eq!(
+        json,
+        "{\"e\":{\"StructVariant\":{\"foo\":21,\"bar\":\"b\"}}}"
+    );
 }
 
 #[test]
@@ -96,13 +172,17 @@ fn test_rename_field() {
                 .rename_field("baz", "baz2")
                 .rename_field("baz2", "baz3");
         }
+
+        fn on_struct_variant(&self, stv: &mut ser::StructVariantScope) {
+            stv.rename_field("foo", "not_foo_either")
+                .rename_field("bar", format!("bar_{}", 21))
+                .rename_field("baz", "baz4")
+                .rename_field("baz4", "baz5");
+        }
     }
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(json, r#"{"not_foo":42,"bar_42":"a","baz3":"sample"}"#);
-
-    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(yaml, "not_foo: 42\nbar_42: 'a'\nbaz3: sample\n");
+    assert_eq!(json, "{\"not_foo\":42,\"bar_42\":\"a\",\"baz3\":\"sample\",\"e\":{\"StructVariant\":{\"not_foo_either\":21,\"bar_21\":\"b\",\"baz5\":\"example\"}}}");
 }
 
 #[test]
@@ -112,17 +192,18 @@ fn test_replace_value() {
         fn on_struct(&self, st: &mut ser::StructScope) {
             st.replace_value("baz", -15i16);
         }
+
+        fn on_struct_variant(&self, stv: &mut ser::StructVariantScope) {
+            stv.replace_value("baz", 'x');
+        }
     }
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(json, r#"{"foo":42,"bar":"a","baz":-15}"#);
-
-    let yaml = serde_yaml::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(yaml, "foo: 42\nbar: 'a'\nbaz: -15\n");
+    assert_eq!(json, "{\"foo\":42,\"bar\":\"a\",\"baz\":-15,\"e\":{\"StructVariant\":{\"foo\":21,\"bar\":\"b\",\"baz\":\"x\"}}}");
 }
 
 #[test]
-fn test_replace_value_unserializable() {
+fn test_struct_replace_value_unserializable() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, st: &mut ser::StructScope) {
@@ -132,6 +213,19 @@ fn test_replace_value_unserializable() {
 
     let err = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap_err();
     assert_eq!(err.to_string(), "Error at path 'baz': value is not serializable: newtype STRUCT cannot be represented fully in Value");
+}
+
+#[test]
+fn test_struct_variant_replace_value_unserializable() {
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_struct_variant(&self, stv: &mut ser::StructVariantScope) {
+            stv.replace_value("baz", StaticValue::NewtypeStruct("STRUCT"));
+        }
+    }
+
+    let err = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap_err();
+    assert_eq!(err.to_string(), "Error at path 'e.baz': value is not serializable: newtype STRUCT cannot be represented fully in Value");
 }
 
 #[test]

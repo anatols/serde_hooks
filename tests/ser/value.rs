@@ -18,10 +18,12 @@ struct Struct {
     struct_val: (),
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Serialize)]
 enum Enum {
     UnitVariant,
     NewtypeVariant(()),
+    StructVariant { struct_variant_val: () },
 }
 
 #[derive(Serialize)]
@@ -61,6 +63,7 @@ struct Payload<'s, 'b> {
 
     val_unit_struct: UnitStruct,
     val_struct: Struct,
+    val_struct_variant: Enum,
 
     val_unit_variant: Enum,
     val_newtype_variant: Enum,
@@ -95,6 +98,9 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_some: Some(()),
             val_unit_struct: UnitStruct,
             val_struct: Struct { struct_val: () },
+            val_struct_variant: Enum::StructVariant {
+                struct_variant_val: (),
+            },
             val_unit_variant: Enum::UnitVariant,
             val_newtype_variant: Enum::NewtypeVariant(()),
             val_newtype: Newtype(()),
@@ -177,6 +183,16 @@ fn test_values() {
                         variant: "NewtypeVariant",
                     },
                 )
+                | (
+                    "val_struct_variant",
+                    Value::StructVariant {
+                        name: "Enum",
+                        variant_index: 2,
+                        variant: "StructVariant",
+                        len: 1,
+                    },
+                )
+                | ("val_struct_variant.struct_variant_val", _)
                 | ("val_newtype", Value::NewtypeStruct("Newtype"))
                 | ("val_map", Value::Map(Some(2)))
                 | ("val_map[1]", _)
@@ -218,38 +234,42 @@ fn test_replace() {
         }
     }
 
-    let yaml =
+    let actual =
         serde_yaml::to_string(&ser::hook(&Payload::new(&val_str, &val_bytes), &Hooks)).unwrap();
+
+    let expected = indoc! {"
+        val_bool: R val_bool
+        val_i8: R val_i8
+        val_i16: R val_i16
+        val_i32: R val_i32
+        val_i64: R val_i64
+        val_u8: R val_u8
+        val_u16: R val_u16
+        val_u32: R val_u32
+        val_u64: R val_u64
+        val_f32: R val_f32
+        val_f64: R val_f64
+        val_char: R val_char
+        val_str: R val_str
+        val_str_static: R val_str_static
+        val_str_owned: R val_str_owned
+        val_bytes: R val_bytes
+        val_bytes_static: R val_bytes_static
+        val_bytes_owned: R val_bytes_owned
+        val_unit: R val_unit
+        val_none: R val_none
+        val_some: R val_some
+        val_unit_struct: R val_unit_struct
+        val_struct: R val_struct
+        val_struct_variant: R val_struct_variant
+        val_unit_variant: R val_unit_variant
+        val_newtype_variant: R val_newtype_variant
+        val_newtype: R val_newtype
+        val_map: R val_map
+    "};
+
     assert_eq!(
-        yaml,
-        indoc! {"
-            val_bool: R val_bool
-            val_i8: R val_i8
-            val_i16: R val_i16
-            val_i32: R val_i32
-            val_i64: R val_i64
-            val_u8: R val_u8
-            val_u16: R val_u16
-            val_u32: R val_u32
-            val_u64: R val_u64
-            val_f32: R val_f32
-            val_f64: R val_f64
-            val_char: R val_char
-            val_str: R val_str
-            val_str_static: R val_str_static
-            val_str_owned: R val_str_owned
-            val_bytes: R val_bytes
-            val_bytes_static: R val_bytes_static
-            val_bytes_owned: R val_bytes_owned
-            val_unit: R val_unit
-            val_none: R val_none
-            val_some: R val_some
-            val_unit_struct: R val_unit_struct
-            val_struct: R val_struct
-            val_unit_variant: R val_unit_variant
-            val_newtype_variant: R val_newtype_variant
-            val_newtype: R val_newtype
-            val_map: R val_map
-    "}
+        actual, expected,
+        "\n\nExpected YAML:\n\n{expected}\n\nActual YAML:\n\n{actual}\n\n"
     );
 }

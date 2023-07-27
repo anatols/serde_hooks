@@ -7,7 +7,10 @@ mod scope;
 mod value;
 mod wrapper;
 
-pub use scope::{ErrorScope, MapKeyScope, MapKeySelector, MapScope, StructScope, ValueScope};
+pub use scope::{
+    ErrorScope, MapKeyScope, MapKeySelector, MapScope, StructManipulation, StructScope,
+    StructVariantScope, ValueScope,
+};
 
 use context::SerializableWithContext;
 
@@ -33,6 +36,9 @@ pub trait Hooks {
 
     #[allow(unused_variables)]
     fn on_struct(&self, st: &mut StructScope) {}
+
+    #[allow(unused_variables)]
+    fn on_struct_variant(&self, stv: &mut StructVariantScope) {}
 
     #[allow(unused_variables)]
     fn on_value<S: Serializer>(&self, value: &mut ValueScope<S>) {}

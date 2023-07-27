@@ -72,7 +72,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     type SerializeTupleVariant = S::SerializeTupleVariant;
     type SerializeMap = SerializeMapWrapper<'h, S, H>;
     type SerializeStruct = SerializeStructWrapper<'h, S, H>;
-    type SerializeStructVariant = S::SerializeStructVariant;
+    type SerializeStructVariant = SerializeStructWrapper<'h, S, H>;
 
     value_serialize!(serialize_bool, Bool, v: bool);
     value_serialize!(serialize_i8, I8, v: i8);
@@ -183,7 +183,11 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             OnValueAction::ContinueSerialization(s) => {
                 let actions = self.hooks.on_struct(len, name);
                 s.serialize_struct(name, len).map(|serialize_struct| {
-                    SerializeStructWrapper::new_wrapped(serialize_struct, self.hooks, actions)
+                    SerializeStructWrapper::new_wrapped_struct(
+                        serialize_struct,
+                        self.hooks,
+                        actions,
+                    )
                 })
             }
         }
@@ -196,7 +200,27 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        self.serializer
-            .serialize_struct_variant(name, variant_index, variant, len)
+        let value_action = on_value_callback!(self StructVariant,
+            name: &'static str,
+            variant_index: u32,
+            variant: &'static str,
+            len: usize
+        );
+        match value_action {
+            OnValueAction::ValueReplaced(r) => Ok(SerializeStructWrapper::new_skipped(r)),
+            OnValueAction::ContinueSerialization(s) => {
+                let actions = self
+                    .hooks
+                    .on_struct_variant(len, name, variant, variant_index);
+                s.serialize_struct_variant(name, variant_index, variant, len)
+                    .map(|serialize_struct_variant| {
+                        SerializeStructWrapper::new_wrapped_struct_variant(
+                            serialize_struct_variant,
+                            self.hooks,
+                            actions,
+                        )
+                    })
+            }
+        }
     }
 }

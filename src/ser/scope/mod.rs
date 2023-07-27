@@ -5,7 +5,7 @@ mod value;
 
 pub use error::ErrorScope;
 pub use map::{MapKeySelector, MapScope};
-pub use r#struct::StructScope;
+pub use r#struct::{StructManipulation, StructScope, StructVariantScope};
 pub use value::ValueScope;
 
 pub type MapKeyScope<'p, 'v, S> = ValueScope<'p, 'v, S>;

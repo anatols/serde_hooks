@@ -21,6 +21,14 @@ pub(crate) trait SerializerWrapperHooks {
 
     fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> OnStructFieldActions;
 
+    fn on_struct_variant(
+        &self,
+        struct_len: usize,
+        enum_name: &'static str,
+        variant_name: &'static str,
+        variant_index: u32,
+    ) -> OnStructFieldActions;
+
     fn on_map_key<S: Serializer>(&self, serializer: S, key: crate::Value) -> OnValueAction<S>;
 
     fn on_value<S: Serializer>(&self, serializer: S, value: crate::Value) -> OnValueAction<S>;

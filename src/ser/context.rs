@@ -4,7 +4,10 @@ use serde::{Serialize, Serializer};
 
 use super::scope;
 use super::wrapper;
-use super::{ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, ValueScope};
+use super::{
+    ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, StructVariantScope,
+    ValueScope,
+};
 use crate::path::{Path, PathSegment};
 use crate::Value;
 
@@ -67,6 +70,20 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         let path = &self.inner.borrow().path;
         let mut scope = StructScope::new(path, struct_len, struct_name);
         self.inner.borrow().hooks.on_struct(&mut scope);
+        scope.into_actions()
+    }
+
+    fn on_struct_variant(
+        &self,
+        struct_len: usize,
+        enum_name: &'static str,
+        variant_name: &'static str,
+        variant_index: u32,
+    ) -> scope::OnStructFieldActions {
+        let path = &self.inner.borrow().path;
+        let mut scope =
+            StructVariantScope::new(path, struct_len, enum_name, variant_name, variant_index);
+        self.inner.borrow().hooks.on_struct_variant(&mut scope);
         scope.into_actions()
     }
 

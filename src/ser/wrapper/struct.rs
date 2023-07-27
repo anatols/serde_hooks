@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use serde::ser::{SerializeStruct, SerializeStructVariant};
 use serde::{Serialize, Serializer};
 
 use crate::ser::scope::{OnStructFieldActions, StructFieldAction};
@@ -9,10 +10,41 @@ use crate::Value;
 
 use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
+pub(crate) enum Wrap<S: Serializer> {
+    SerializeStruct(S::SerializeStruct),
+    SerializeStructVariant(S::SerializeStructVariant),
+}
+
+impl<S: Serializer> Wrap<S> {
+    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), S::Error>
+    where
+        T: Serialize,
+    {
+        match self {
+            Wrap::SerializeStruct(s) => s.serialize_field(key, value),
+            Wrap::SerializeStructVariant(s) => s.serialize_field(key, value),
+        }
+    }
+
+    fn skip_field(&mut self, key: &'static str) -> Result<(), S::Error> {
+        match self {
+            Wrap::SerializeStruct(s) => s.skip_field(key),
+            Wrap::SerializeStructVariant(s) => s.skip_field(key),
+        }
+    }
+
+    fn end(self) -> Result<S::Ok, S::Error> {
+        match self {
+            Wrap::SerializeStruct(s) => s.end(),
+            Wrap::SerializeStructVariant(s) => s.end(),
+        }
+    }
+}
+
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     Wrapped {
-        serialize_struct: S::SerializeStruct,
+        wrap: Wrap<S>,
         hooks: &'h H,
         actions: OnStructFieldActions,
         have_retains: bool,
@@ -23,13 +55,28 @@ pub(crate) enum SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHo
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S, H> {
-    pub(super) fn new_wrapped(
+    pub(super) fn new_wrapped_struct(
         serialize_struct: S::SerializeStruct,
         hooks: &'h H,
         actions: OnStructFieldActions,
     ) -> Self {
         Self::Wrapped {
-            serialize_struct,
+            wrap: Wrap::SerializeStruct(serialize_struct),
+            hooks,
+            have_retains: actions
+                .iter()
+                .any(|a| matches!(a, StructFieldAction::Retain(_))),
+            actions,
+        }
+    }
+
+    pub(super) fn new_wrapped_struct_variant(
+        serialize_struct_variant: S::SerializeStructVariant,
+        hooks: &'h H,
+        actions: OnStructFieldActions,
+    ) -> Self {
+        Self::Wrapped {
+            wrap: Wrap::SerializeStructVariant(serialize_struct_variant),
             hooks,
             have_retains: actions
                 .iter()
@@ -41,26 +88,15 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
     pub(super) fn new_skipped(end_result: Result<S::Ok, S::Error>) -> Self {
         Self::Skipped { end_result }
     }
-}
 
-impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
-    for SerializeStructWrapper<'h, S, H>
-{
-    type Ok = S::Ok;
-    type Error = S::Error;
-
-    fn serialize_field<T: ?Sized>(
-        &mut self,
-        key: &'static str,
-        value: &T,
-    ) -> Result<(), Self::Error>
+    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), S::Error>
     where
         T: Serialize,
     {
         match self {
             SerializeStructWrapper::Skipped { .. } => Ok(()),
             SerializeStructWrapper::Wrapped {
-                serialize_struct,
+                wrap,
                 hooks,
                 actions,
                 have_retains,
@@ -114,12 +150,12 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
                 }
 
                 let res = if skip_field {
-                    serialize_struct.skip_field(key)
+                    wrap.skip_field(key)
                 } else if let Some(replacement_value) = replacement_value {
-                    serialize_struct.serialize_field(into_static_str(field_key), &replacement_value)
+                    wrap.serialize_field(into_static_str(field_key), &replacement_value)
                 } else {
                     let s = SerializableWithHooks::new(value, *hooks, SerializableKind::Value);
-                    serialize_struct.serialize_field(into_static_str(field_key), &s)
+                    wrap.serialize_field(into_static_str(field_key), &s)
                 };
 
                 hooks.path_pop();
@@ -128,11 +164,11 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
         }
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
+    fn end(self) -> Result<S::Ok, S::Error> {
         match self {
             SerializeStructWrapper::Skipped { end_result } => end_result,
             SerializeStructWrapper::Wrapped {
-                serialize_struct,
+                wrap,
                 hooks,
                 actions,
                 ..
@@ -148,8 +184,52 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
                     }
                 }
 
-                serialize_struct.end()
+                wrap.end()
             }
         }
+    }
+}
+
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStruct
+    for SerializeStructWrapper<'h, S, H>
+{
+    type Ok = S::Ok;
+    type Error = S::Error;
+
+    fn serialize_field<T: ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        self.serialize_field(key, value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.end()
+    }
+}
+
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStructVariant
+    for SerializeStructWrapper<'h, S, H>
+{
+    type Ok = S::Ok;
+    type Error = S::Error;
+
+    fn serialize_field<T: ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        self.serialize_field(key, value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.end()
     }
 }
