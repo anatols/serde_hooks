@@ -10,21 +10,27 @@ use crate::Value;
 
 use super::{SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
-pub(crate) struct SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
-    serialize_map: S::SerializeMap,
-    hooks: &'h H,
-    actions: OnMapEntryActions,
-    have_retains: bool,
-    entry_index: Cell<usize>,
+#[allow(clippy::large_enum_variant)]
+pub(crate) enum SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
+    Wrapped {
+        serialize_map: S::SerializeMap,
+        hooks: &'h H,
+        actions: OnMapEntryActions,
+        have_retains: bool,
+        entry_index: Cell<usize>,
+    },
+    Skipped {
+        end_result: Result<S::Ok, S::Error>,
+    },
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H> {
-    pub(super) fn new(
+    pub(super) fn new_wrapped(
         serialize_map: S::SerializeMap,
         hooks: &'h H,
         actions: OnMapEntryActions,
     ) -> Self {
-        Self {
+        Self::Wrapped {
             serialize_map,
             hooks,
             have_retains: actions
@@ -33,6 +39,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H>
             actions,
             entry_index: Cell::new(0),
         }
+    }
+
+    pub(super) fn new_skipped(end_result: Result<S::Ok, S::Error>) -> Self {
+        Self::Skipped { end_result }
     }
 }
 
@@ -46,16 +56,22 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
     where
         T: Serialize,
     {
-        println!("serialize_key");
-        self.serialize_map.serialize_key(key)
+        match self {
+            SerializeMapWrapper::Skipped { .. } => Ok(()),
+            SerializeMapWrapper::Wrapped { serialize_map, .. } => serialize_map.serialize_key(key),
+        }
     }
 
     fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: Serialize,
     {
-        println!("serialize_value");
-        self.serialize_map.serialize_value(value)
+        match self {
+            SerializeMapWrapper::Skipped { .. } => Ok(()),
+            SerializeMapWrapper::Wrapped { serialize_map, .. } => {
+                serialize_map.serialize_value(value)
+            }
+        }
     }
 
     fn serialize_entry<K: ?Sized, V: ?Sized>(
@@ -67,137 +83,156 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
         K: Serialize,
         V: Serialize,
     {
-        println!("serialize_entry");
-        let mut map_key = MapKeyCapture::capture(self.entry_index.get(), key);
+        match self {
+            SerializeMapWrapper::Skipped { .. } => Ok(()),
+            SerializeMapWrapper::Wrapped {
+                serialize_map,
+                hooks,
+                actions,
+                have_retains,
+                entry_index,
+            } => {
+                let mut map_key = MapKeyCapture::capture(entry_index.get(), key);
 
-        let mut retain_entry = false;
-        let mut skip_entry = false;
-        let mut replace_entry = false;
-        let mut replacement_value: Option<Value> = None;
-        let mut replacement_key: Option<Value> = None;
-        let mut error = None;
+                let mut retain_entry = false;
+                let mut skip_entry = false;
+                let mut replace_entry = false;
+                let mut replacement_value: Option<Value> = None;
+                let mut replacement_key: Option<Value> = None;
+                let mut error = None;
 
-        self.actions.retain_mut(|a| {
-            if error.is_some() {
-                return true;
+                actions.retain_mut(|a| {
+                    if error.is_some() {
+                        return true;
+                    }
+                    match a {
+                        MapEntryAction::Retain(k) => {
+                            let matches = k.matches_path_key(&map_key);
+                            if matches {
+                                retain_entry = true;
+                            }
+                            !matches
+                        }
+                        MapEntryAction::Skip(k) => {
+                            let matches = k.matches_path_key(&map_key);
+                            if matches {
+                                skip_entry = true;
+                            }
+                            !matches
+                        }
+                        MapEntryAction::Add(k, _) => {
+                            let matches = k.matches_path_key(&map_key);
+                            if matches {
+                                error = Some(HooksError::KeyAlreadyPresent(k.clone()));
+                            }
+                            true
+                        }
+                        MapEntryAction::Replace(k, v) | MapEntryAction::ReplaceOrAdd(k, v) => {
+                            let matches = k.matches_path_key(&map_key);
+                            if matches {
+                                replace_entry = true;
+                                replacement_value = v.take();
+                            }
+                            !matches
+                        }
+                        MapEntryAction::ReplaceKey(k, v) => {
+                            let matches = k.matches_path_key(&map_key);
+                            if matches {
+                                map_key = PathMapKey::new(map_key.index(), v.clone());
+                                replacement_key = Some(v.clone());
+                            }
+                            !matches
+                        }
+                    }
+                });
+
+                if let Some(err) = error {
+                    hooks.on_error::<S>(err)?;
+                }
+
+                if *have_retains && !retain_entry {
+                    skip_entry = true;
+                }
+
+                hooks.path_push(map_key.into());
+
+                if let Some(replacement_value) = &replacement_value {
+                    replacement_value
+                        .check_if_can_serialize()
+                        .or_else(|err| hooks.on_error::<S>(err))?;
+                }
+
+                if let Some(replacement_key) = &replacement_key {
+                    replacement_key
+                        .check_if_can_serialize()
+                        .or_else(|err| hooks.on_error::<S>(err))?;
+                }
+
+                let res = if replace_entry {
+                    if let Some(replacement_key) = &replacement_key {
+                        serialize_map.serialize_entry(replacement_key, &replacement_value)
+                    } else {
+                        serialize_map.serialize_entry(key, &replacement_value)
+                    }
+                } else if skip_entry {
+                    Ok(())
+                } else if let Some(replacement_key) = &replacement_key {
+                    serialize_map.serialize_entry(
+                        replacement_key,
+                        &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
+                    )
+                } else {
+                    serialize_map.serialize_entry(
+                        &SerializableWithHooks::new(key, *hooks, SerializableKind::MapKey),
+                        &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
+                    )
+                };
+
+                hooks.path_pop();
+                entry_index.replace(entry_index.get() + 1);
+                res
             }
-            match a {
-                MapEntryAction::Retain(k) => {
-                    let matches = k.matches_path_key(&map_key);
-                    if matches {
-                        retain_entry = true;
-                    }
-                    !matches
-                }
-                MapEntryAction::Skip(k) => {
-                    let matches = k.matches_path_key(&map_key);
-                    if matches {
-                        skip_entry = true;
-                    }
-                    !matches
-                }
-                MapEntryAction::Add(k, _) => {
-                    let matches = k.matches_path_key(&map_key);
-                    if matches {
-                        error = Some(HooksError::KeyAlreadyPresent(k.clone()));
-                    }
-                    true
-                }
-                MapEntryAction::Replace(k, v) | MapEntryAction::ReplaceOrAdd(k, v) => {
-                    let matches = k.matches_path_key(&map_key);
-                    if matches {
-                        replace_entry = true;
-                        replacement_value = v.take();
-                    }
-                    !matches
-                }
-                MapEntryAction::ReplaceKey(k, v) => {
-                    let matches = k.matches_path_key(&map_key);
-                    if matches {
-                        map_key = PathMapKey::new(map_key.index(), v.clone());
-                        replacement_key = Some(v.clone());
-                    }
-                    !matches
-                }
-            }
-        });
-
-        if let Some(err) = error {
-            self.hooks.on_error::<S>(err)?;
         }
-
-        if self.have_retains && !retain_entry {
-            skip_entry = true;
-        }
-
-        self.hooks.path_push(map_key.into());
-
-        if let Some(replacement_value) = &replacement_value {
-            replacement_value
-                .check_if_can_serialize()
-                .or_else(|err| self.hooks.on_error::<S>(err))?;
-        }
-
-        if let Some(replacement_key) = &replacement_key {
-            replacement_key
-                .check_if_can_serialize()
-                .or_else(|err| self.hooks.on_error::<S>(err))?;
-        }
-
-        let res = if replace_entry {
-            if let Some(replacement_key) = &replacement_key {
-                self.serialize_map
-                    .serialize_entry(replacement_key, &replacement_value)
-            } else {
-                self.serialize_map.serialize_entry(key, &replacement_value)
-            }
-        } else if skip_entry {
-            Ok(())
-        } else if let Some(replacement_key) = &replacement_key {
-            self.serialize_map.serialize_entry(
-                replacement_key,
-                &SerializableWithHooks::new(value, self.hooks, SerializableKind::Value),
-            )
-        } else {
-            self.serialize_map.serialize_entry(
-                &SerializableWithHooks::new(key, self.hooks, SerializableKind::MapKey),
-                &SerializableWithHooks::new(value, self.hooks, SerializableKind::Value),
-            )
-        };
-
-        self.hooks.path_pop();
-        self.entry_index.replace(self.entry_index.get() + 1);
-        res
     }
 
-    fn end(mut self) -> Result<Self::Ok, Self::Error> {
-        for a in self.actions {
-            match a {
-                MapEntryAction::Add(MapKeySelector::ByValue(k), v)
-                | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByValue(k), v) => {
-                    if let Some(value) = &v {
-                        self.serialize_map.serialize_entry(&k, value)?
-                    } else {
-                        self.serialize_map.serialize_entry(
-                            &k,
-                            &SerializableWithHooks::new(&v, self.hooks, SerializableKind::Value),
-                        )?
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        match self {
+            SerializeMapWrapper::Skipped { end_result } => end_result,
+            SerializeMapWrapper::Wrapped {
+                mut serialize_map,
+                hooks,
+                actions,
+                ..
+            } => {
+                for a in actions {
+                    match a {
+                        MapEntryAction::Add(MapKeySelector::ByValue(k), v)
+                        | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByValue(k), v) => {
+                            if let Some(value) = &v {
+                                serialize_map.serialize_entry(&k, value)?
+                            } else {
+                                serialize_map.serialize_entry(
+                                    &k,
+                                    &SerializableWithHooks::new(&v, hooks, SerializableKind::Value),
+                                )?
+                            }
+                        }
+                        MapEntryAction::Add(MapKeySelector::ByIndex(index), _)
+                        | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByIndex(index), _) => {
+                            hooks.on_error::<S>(HooksError::CannotAddEntryByIndex(index))?
+                        }
+                        MapEntryAction::Replace(k, _)
+                        | MapEntryAction::Retain(k)
+                        | MapEntryAction::Skip(k)
+                        | MapEntryAction::ReplaceKey(k, _) => {
+                            hooks.on_error::<S>(HooksError::KeyNotFound(k))?
+                        }
                     }
                 }
-                MapEntryAction::Add(MapKeySelector::ByIndex(index), _)
-                | MapEntryAction::ReplaceOrAdd(MapKeySelector::ByIndex(index), _) => self
-                    .hooks
-                    .on_error::<S>(HooksError::CannotAddEntryByIndex(index))?,
-                MapEntryAction::Replace(k, _)
-                | MapEntryAction::Retain(k)
-                | MapEntryAction::Skip(k)
-                | MapEntryAction::ReplaceKey(k, _) => {
-                    self.hooks.on_error::<S>(HooksError::KeyNotFound(k))?
-                }
+
+                serialize_map.end()
             }
         }
-
-        self.serialize_map.end()
     }
 }
 

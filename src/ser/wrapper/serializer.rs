@@ -154,12 +154,19 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        println!("serialize_map {len:?}");
-
-        let actions = self.hooks.on_map(len);
-        self.serializer
-            .serialize_map(if actions.is_empty() { len } else { None })
-            .map(|serialize_map| SerializeMapWrapper::new(serialize_map, self.hooks, actions))
+        let value_action = on_value_callback!(self Map,
+            len: Option<usize>
+        );
+        match value_action {
+            OnValueAction::ValueReplaced(r) => Ok(SerializeMapWrapper::new_skipped(r)),
+            OnValueAction::ContinueSerialization(s) => {
+                let actions = self.hooks.on_map(len);
+                s.serialize_map(if actions.is_empty() { len } else { None })
+                    .map(|serialize_map| {
+                        SerializeMapWrapper::new_wrapped(serialize_map, self.hooks, actions)
+                    })
+            }
+        }
     }
 
     fn serialize_struct(
