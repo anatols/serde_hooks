@@ -156,7 +156,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
 
                 if !renamed_field {
                     if let Some(case) = rename_all {
-                        field_key = Case::convert_field_key(&field_key, *case).into();
+                        field_key = Case::string_to_case(&field_key, *case).into();
                     }
                 }
 

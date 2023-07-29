@@ -1,10 +1,14 @@
+use std::borrow::Cow;
+
 use serde::{Serialize, Serializer};
 
 use super::map::SerializeMapWrapper;
 use super::r#struct::SerializeStructWrapper;
 use super::seq::SerializeSeqWrapper;
 use super::{SerializableKind, SerializerWrapperHooks};
-use crate::ser::scope::OnValueAction;
+use crate::ser::scope::{OnValueAction, OnVariantActions, VariantAction};
+use crate::static_str::into_static_str;
+use crate::Case;
 
 pub(crate) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
     serializer: S,
@@ -93,13 +97,55 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
 
     value_serialize!(serialize_unit_struct, UnitStruct, name: &'static str);
 
-    value_serialize!(
-        serialize_unit_variant,
-        UnitVariant,
+    fn serialize_unit_variant(
+        self,
         name: &'static str,
         variant_index: u32,
-        variant: &'static str
-    );
+        variant: &'static str,
+    ) -> Result<Self::Ok, Self::Error> {
+        let value_action = on_value_callback!(self UnitVariant,
+            name: &'static str,
+            variant_index: u32,
+            variant: &'static str
+        );
+
+        match value_action {
+            OnValueAction::ValueReplaced(r) => r,
+            OnValueAction::ContinueSerialization(s) => {
+                let variant_actions = self.hooks.on_unit_variant(name, variant, variant_index);
+                let (name, variant_index, variant) =
+                    apply_variant_actions(name, variant_index, variant, variant_actions);
+                s.serialize_unit_variant(name, variant_index, variant)
+            }
+        }
+    }
+
+    fn serialize_newtype_variant<T: ?Sized>(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: Serialize,
+    {
+        let value_action = on_value_callback!(self NewtypeVariant,
+            name: &'static str,
+            variant_index: u32,
+            variant: &'static str
+        );
+
+        match value_action {
+            OnValueAction::ValueReplaced(r) => r,
+            OnValueAction::ContinueSerialization(s) => {
+                let variant_actions = self.hooks.on_newtype_variant(name, variant, variant_index);
+                let (name, variant_index, variant) =
+                    apply_variant_actions(name, variant_index, variant, variant_actions);
+                s.serialize_newtype_variant(name, variant_index, variant, value)
+            }
+        }
+    }
 
     value_serialize!(
         serialize_newtype_struct,
@@ -113,16 +159,6 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     value_serialize!(
         serialize_some,
         Some
-        =>
-        value: T
-    );
-
-    value_serialize!(
-        serialize_newtype_variant,
-        NewtypeVariant,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str
         =>
         value: T
     );
@@ -222,18 +258,72 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         match value_action {
             OnValueAction::ValueReplaced(r) => Ok(SerializeStructWrapper::new_skipped(r)),
             OnValueAction::ContinueSerialization(s) => {
-                let actions = self
-                    .hooks
-                    .on_struct_variant(len, name, variant, variant_index);
+                let (variant_actions, struct_actions) =
+                    self.hooks
+                        .on_struct_variant(len, name, variant, variant_index);
+
+                let (name, variant_index, variant) =
+                    apply_variant_actions(name, variant_index, variant, variant_actions);
+
                 s.serialize_struct_variant(name, variant_index, variant, len)
                     .map(|serialize_struct_variant| {
                         SerializeStructWrapper::new_wrapped_struct_variant(
                             serialize_struct_variant,
                             self.hooks,
-                            actions,
+                            struct_actions,
                         )
                     })
             }
         }
     }
+}
+
+/// Applies variant actions and return (possibly) new enum name, variant index and variant name.
+fn apply_variant_actions(
+    name: &'static str,
+    variant_index: u32,
+    variant: &'static str,
+    actions: OnVariantActions,
+) -> (&'static str, u32, &'static str) {
+    let mut new_name: Option<Cow<'static, str>> = None;
+    let mut enum_case: Option<Case> = None;
+    let mut new_variant: Option<Cow<'static, str>> = None;
+    let mut variant_case: Option<Case> = None;
+    let mut new_variant_index: Option<u32> = None;
+
+    actions.into_iter().rev().for_each(|a| match a {
+        VariantAction::RenameEnumCase(c) => {
+            enum_case.get_or_insert(c);
+        }
+        VariantAction::RenameEnum(n) => {
+            new_name.get_or_insert(n);
+        }
+        VariantAction::RenameVariantCase(c) => {
+            variant_case.get_or_insert(c);
+        }
+        VariantAction::RenameVariant(n) => {
+            new_variant.get_or_insert(n);
+        }
+        VariantAction::ChangeVariantIndex(i) => {
+            new_variant_index.get_or_insert(i);
+        }
+    });
+
+    if new_name.is_none() {
+        if let Some(c) = enum_case {
+            new_name = Some(Case::string_to_case(name, c).into());
+        }
+    }
+
+    if new_variant.is_none() {
+        if let Some(c) = variant_case {
+            new_variant = Some(Case::string_to_case(variant, c).into());
+        }
+    }
+
+    (
+        into_static_str(new_name.unwrap_or(name.into())),
+        new_variant_index.unwrap_or(variant_index),
+        into_static_str(new_variant.unwrap_or(variant.into())),
+    )
 }

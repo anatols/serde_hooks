@@ -2,14 +2,12 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Serialize, Serializer};
 
-use super::scope;
-use super::scope::SeqScope;
-use super::wrapper;
-use super::{
-    ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, StructVariantScope,
-    ValueScope,
+use super::scope::{
+    self, EnumVariantScope, ErrorScope, MapKeyScope, MapScope, SeqScope, StructScope, ValueScope,
 };
+use super::wrapper;
 use crate::path::{Path, PathSegment};
+use crate::ser::{Hooks, HooksError};
 use crate::Value;
 
 pub struct SerializableWithContext<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
@@ -80,12 +78,19 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         enum_name: &'static str,
         variant_name: &'static str,
         variant_index: u32,
-    ) -> scope::OnStructFieldActions {
+    ) -> (scope::OnVariantActions, scope::OnStructFieldActions) {
         let path = &self.inner.borrow().path;
-        let mut scope =
-            StructVariantScope::new(path, struct_len, enum_name, variant_name, variant_index);
-        self.inner.borrow().hooks.on_struct_variant(&mut scope);
-        scope.into_actions()
+
+        let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
+        let mut struct_scope = StructScope::new(path, struct_len, variant_name);
+
+        let hooks = self.inner.borrow().hooks;
+
+        hooks.on_enum_variant(&mut variant_scope);
+        hooks.on_struct(&mut struct_scope);
+        hooks.on_struct_variant(&mut variant_scope, &mut struct_scope);
+
+        (variant_scope.into_actions(), struct_scope.into_actions())
     }
 
     fn on_map_key<S: Serializer>(&self, serializer: S, value: Value) -> scope::OnValueAction<S> {
@@ -118,6 +123,38 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         let mut scope = SeqScope::new(path, len);
         self.inner.borrow().hooks.on_seq(&mut scope);
         scope.into_actions()
+    }
+
+    fn on_unit_variant(
+        &self,
+        enum_name: &'static str,
+        variant_name: &'static str,
+        variant_index: u32,
+    ) -> scope::OnVariantActions {
+        let path = &self.inner.borrow().path;
+
+        let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
+
+        let hooks = self.inner.borrow().hooks;
+        hooks.on_enum_variant(&mut variant_scope);
+
+        variant_scope.into_actions()
+    }
+
+    fn on_newtype_variant(
+        &self,
+        enum_name: &'static str,
+        variant_name: &'static str,
+        variant_index: u32,
+    ) -> scope::OnVariantActions {
+        let path = &self.inner.borrow().path;
+
+        let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
+
+        let hooks = self.inner.borrow().hooks;
+        hooks.on_enum_variant(&mut variant_scope);
+
+        variant_scope.into_actions()
     }
 }
 

@@ -8,8 +8,8 @@ mod value;
 mod wrapper;
 
 pub use scope::{
-    ErrorScope, MapKeyScope, MapKeySelector, MapScope, SeqManipulation, SeqScope,
-    StructManipulation, StructScope, StructVariantScope, ValueScope,
+    EnumVariantScope, ErrorScope, MapKeyScope, MapKeySelector, MapScope, SeqManipulation, SeqScope,
+    StructScope, ValueScope,
 };
 
 use context::SerializableWithContext;
@@ -38,7 +38,10 @@ pub trait Hooks {
     fn on_struct(&self, st: &mut StructScope) {}
 
     #[allow(unused_variables)]
-    fn on_struct_variant(&self, stv: &mut StructVariantScope) {}
+    fn on_enum_variant(&self, ev: &mut EnumVariantScope) {}
+
+    #[allow(unused_variables)]
+    fn on_struct_variant(&self, ev: &mut EnumVariantScope, st: &mut StructScope) {}
 
     #[allow(unused_variables)]
     fn on_seq(&self, seq: &mut SeqScope) {}

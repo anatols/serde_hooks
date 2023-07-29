@@ -5,7 +5,9 @@ mod seq;
 mod serializer;
 mod r#struct;
 
-use super::scope::{OnMapEntryActions, OnSeqElementActions, OnStructFieldActions, OnValueAction};
+use super::scope::{
+    OnMapEntryActions, OnSeqElementActions, OnStructFieldActions, OnValueAction, OnVariantActions,
+};
 use super::HooksError;
 use crate::path::PathSegment;
 
@@ -20,6 +22,20 @@ pub(crate) trait SerializerWrapperHooks {
 
     fn on_map(&self, map_len: Option<usize>) -> OnMapEntryActions;
 
+    fn on_unit_variant(
+        &self,
+        enum_name: &'static str,
+        variant_name: &'static str,
+        variant_index: u32,
+    ) -> OnVariantActions;
+
+    fn on_newtype_variant(
+        &self,
+        enum_name: &'static str,
+        variant_name: &'static str,
+        variant_index: u32,
+    ) -> OnVariantActions;
+
     fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> OnStructFieldActions;
 
     fn on_struct_variant(
@@ -28,7 +44,7 @@ pub(crate) trait SerializerWrapperHooks {
         enum_name: &'static str,
         variant_name: &'static str,
         variant_index: u32,
-    ) -> OnStructFieldActions;
+    ) -> (OnVariantActions, OnStructFieldActions);
 
     fn on_map_key<S: Serializer>(&self, serializer: S, key: crate::Value) -> OnValueAction<S>;
 

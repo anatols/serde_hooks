@@ -28,7 +28,7 @@ impl From<&str> for Case {
 }
 
 impl Case {
-    pub(crate) fn convert_field_key(key: &str, to_case: Case) -> String {
+    pub(crate) fn string_to_case(key: &str, to_case: Case) -> String {
         use convert_case::Casing;
         match to_case {
             Case::Lower => key.to_case(convert_case::Case::Lower),
