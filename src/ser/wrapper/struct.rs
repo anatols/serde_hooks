@@ -6,7 +6,7 @@ use serde::{Serialize, Serializer};
 use crate::ser::scope::{OnStructFieldActions, StructFieldAction};
 use crate::ser::HooksError;
 use crate::static_str::into_static_str;
-use crate::Value;
+use crate::{Case, Value};
 
 use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
 
@@ -48,6 +48,7 @@ pub(crate) enum SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHo
         hooks: &'h H,
         actions: OnStructFieldActions,
         have_retains: bool,
+        rename_all: Option<Case>,
     },
     Skipped {
         end_result: Result<S::Ok, S::Error>,
@@ -66,6 +67,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
             have_retains: actions
                 .iter()
                 .any(|a| matches!(a, StructFieldAction::Retain(_))),
+            rename_all: actions.iter().rev().find_map(|a| match a {
+                StructFieldAction::RenameAll(case) => Some(*case),
+                _ => None,
+            }),
             actions,
         }
     }
@@ -81,6 +86,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
             have_retains: actions
                 .iter()
                 .any(|a| matches!(a, StructFieldAction::Retain(_))),
+            rename_all: actions.iter().rev().find_map(|a| match a {
+                StructFieldAction::RenameAll(case) => Some(*case),
+                _ => None,
+            }),
             actions,
         }
     }
@@ -100,8 +109,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                 hooks,
                 actions,
                 have_retains,
+                rename_all,
             } => {
                 let mut field_key: Cow<'static, str> = key.into();
+                let mut renamed_field = false;
                 let mut retain_field = false;
                 let mut skip_field = false;
                 let mut replacement_value: Option<Value> = None;
@@ -124,6 +135,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                     StructFieldAction::Rename(n, r) => {
                         let matches = field_key == *n;
                         if matches {
+                            renamed_field = true;
                             field_key = r.clone();
                         }
                         !matches
@@ -135,10 +147,17 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                         }
                         !matches
                     }
+                    StructFieldAction::RenameAll(_) => false,
                 });
 
                 if *have_retains && !retain_field {
                     skip_field = true;
+                }
+
+                if !renamed_field {
+                    if let Some(case) = rename_all {
+                        field_key = Case::convert_field_key(&field_key, *case).into();
+                    }
                 }
 
                 hooks.path_push(PathSegment::StructField(key));
@@ -181,6 +200,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                         | StructFieldAction::ReplaceValue(f, _) => {
                             hooks.on_error::<S>(HooksError::FieldNotFound(f))?
                         }
+                        StructFieldAction::RenameAll(_) => {}
                     }
                 }
 

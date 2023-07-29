@@ -6,7 +6,7 @@ use std::{
 use serde::Serialize;
 use serde_hooks::{
     ser::{self, StructManipulation},
-    StaticValue,
+    Case, StaticValue,
 };
 
 #[derive(Serialize)]
@@ -183,6 +183,49 @@ fn test_rename_field() {
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(json, "{\"not_foo\":42,\"bar_42\":\"a\",\"baz3\":\"sample\",\"e\":{\"StructVariant\":{\"not_foo_either\":21,\"bar_21\":\"b\",\"baz5\":\"example\"}}}");
+}
+
+#[test]
+fn test_rename_all_fields() {
+    #[derive(Serialize)]
+    enum Enum {
+        #[serde(rename_all = "kebab-case")]
+        StructVariant { baz_foo: () },
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "SCREAMING-KEBAB-CASE")]
+    struct Cases {
+        foo_bar: (),
+        bar_baz: (),
+        e: Enum,
+    }
+
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_struct(&self, st: &mut ser::StructScope) {
+            st.rename_all_fields("PascalCase".into())
+                .rename_field("BAR-BAZ", "bbz");
+        }
+
+        fn on_struct_variant(&self, stv: &mut ser::StructVariantScope) {
+            stv.rename_all_fields(Case::ScreamingSnake);
+        }
+    }
+
+    let json = serde_json::to_string(&ser::hook(
+        &Cases {
+            foo_bar: (),
+            bar_baz: (),
+            e: Enum::StructVariant { baz_foo: () },
+        },
+        &Hooks,
+    ))
+    .unwrap();
+    assert_eq!(
+        json,
+        "{\"FooBar\":null,\"bbz\":null,\"E\":{\"StructVariant\":{\"BAZ_FOO\":null}}}"
+    );
 }
 
 #[test]

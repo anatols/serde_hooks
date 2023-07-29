@@ -2,14 +2,14 @@ use std::borrow::Cow;
 
 use smallvec::SmallVec;
 
-use crate::{Path, StaticValue};
+use crate::{Case, Path, StaticValue};
 
-#[derive(Debug)]
 pub(crate) enum StructFieldAction {
     Retain(Cow<'static, str>),
     Skip(Cow<'static, str>),
     Rename(Cow<'static, str>, Cow<'static, str>),
     ReplaceValue(Cow<'static, str>, StaticValue),
+    RenameAll(Case),
 }
 
 pub(crate) type OnStructFieldActions = SmallVec<[StructFieldAction; 8]>;
@@ -19,11 +19,31 @@ pub trait StructManipulation {
 
     fn skip_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self;
 
+    //TODO better docs - explain about static strings
+    /// Rename a field.
+    ///
+    /// The `key` refers to the original field key in the struct, even if [rename_all](StructManipulation::rename_all)
+    /// is called.
+    ///
+    /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
+    /// `#[serde(rename_all=...)]`, you need to specify the field key as it will be *after* serde renaming.
     fn rename_field(
         &mut self,
         key: impl Into<Cow<'static, str>>,
         new_key: impl Into<Cow<'static, str>>,
     ) -> &mut Self;
+
+    /// Rename all structure fields according to the given case convention.
+    ///
+    /// If specified multiple times, the last case convention is used.
+    ///
+    /// Calling [rename_field](StructManipulation::rename_field) on specific fields will override
+    /// this case convention.
+    ///
+    /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
+    /// `#[serde(rename_all=...)]`, those renames will be applied first. See [Case](crate::Case) for more information
+    /// and caveats of case conversion.
+    fn rename_all_fields(&mut self, case: Case) -> &mut Self;
 
     fn replace_value(
         &mut self,
@@ -84,6 +104,11 @@ impl StructManipulation for StructScope<'_> {
     ) -> &mut Self {
         self.actions
             .push(StructFieldAction::Rename(key.into(), new_key.into()));
+        self
+    }
+
+    fn rename_all_fields(&mut self, case: Case) -> &mut Self {
+        self.actions.push(StructFieldAction::RenameAll(case));
         self
     }
 
@@ -170,6 +195,11 @@ impl StructManipulation for StructVariantScope<'_> {
     ) -> &mut Self {
         self.actions
             .push(StructFieldAction::Rename(key.into(), new_key.into()));
+        self
+    }
+
+    fn rename_all_fields(&mut self, case: Case) -> &mut Self {
+        self.actions.push(StructFieldAction::RenameAll(case));
         self
     }
 
