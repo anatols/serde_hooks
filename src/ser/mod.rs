@@ -8,8 +8,8 @@ mod value;
 mod wrapper;
 
 pub use scope::{
-    ErrorScope, MapKeyScope, MapKeySelector, MapScope, StructManipulation, StructScope,
-    StructVariantScope, ValueScope,
+    ErrorScope, MapKeyScope, MapKeySelector, MapScope, SeqManipulation, SeqScope,
+    StructManipulation, StructScope, StructVariantScope, ValueScope,
 };
 
 use context::SerializableWithContext;
@@ -41,6 +41,9 @@ pub trait Hooks {
     fn on_struct_variant(&self, stv: &mut StructVariantScope) {}
 
     #[allow(unused_variables)]
+    fn on_seq(&self, seq: &mut SeqScope) {}
+
+    #[allow(unused_variables)]
     fn on_value<S: Serializer>(&self, value: &mut ValueScope<S>) {}
 }
 
@@ -56,6 +59,8 @@ pub enum HooksError {
     FieldNotFound(Cow<'static, str>),
     #[error("value is not serializable: {0}")]
     ValueNotSerializable(String),
+    #[error("index \"{0}\" not found")]
+    IndexNotFound(usize),
 }
 
 pub fn hook<'s, 'h, T: Serialize + ?Sized, H: Hooks>(

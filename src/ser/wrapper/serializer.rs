@@ -2,6 +2,7 @@ use serde::{Serialize, Serializer};
 
 use super::map::SerializeMapWrapper;
 use super::r#struct::SerializeStructWrapper;
+use super::seq::SerializeSeqWrapper;
 use super::{SerializableKind, SerializerWrapperHooks};
 use crate::ser::scope::OnValueAction;
 
@@ -66,7 +67,7 @@ macro_rules! value_serialize {
 impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrapper<'h, S, H> {
     type Ok = S::Ok;
     type Error = S::Error;
-    type SerializeSeq = S::SerializeSeq;
+    type SerializeSeq = SerializeSeqWrapper<'h, S, H>;
     type SerializeTuple = S::SerializeTuple;
     type SerializeTupleStruct = S::SerializeTupleStruct;
     type SerializeTupleVariant = S::SerializeTupleVariant;
@@ -127,7 +128,19 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     );
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        self.serializer.serialize_seq(len)
+        let value_action = on_value_callback!(self Seq,
+            len: Option<usize>
+        );
+        match value_action {
+            OnValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
+            OnValueAction::ContinueSerialization(s) => {
+                let actions = self.hooks.on_seq(len);
+                s.serialize_seq(if actions.is_empty() { len } else { None })
+                    .map(|serialize_seq| {
+                        SerializeSeqWrapper::new_wrapped_seq(serialize_seq, self.hooks, actions)
+                    })
+            }
+        }
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {

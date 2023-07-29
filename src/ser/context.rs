@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use serde::{Serialize, Serializer};
 
 use super::scope;
+use super::scope::SeqScope;
 use super::wrapper;
 use super::{
     ErrorScope, Hooks, HooksError, MapKeyScope, MapScope, StructScope, StructVariantScope,
@@ -109,6 +110,14 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         let mut scope = ErrorScope::new(path, error);
         self.inner.borrow().hooks.on_error(&mut scope);
         scope.into_result::<S>()
+    }
+
+    fn on_seq(&self, len: Option<usize>) -> scope::OnSeqElementActions {
+        let path = &self.inner.borrow().path;
+
+        let mut scope = SeqScope::new(path, len);
+        self.inner.borrow().hooks.on_seq(&mut scope);
+        scope.into_actions()
     }
 }
 

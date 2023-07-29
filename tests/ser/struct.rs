@@ -73,7 +73,7 @@ fn test_struct_traversing() {
                     assert_eq!(st.struct_name(), "Payload");
                     assert_eq!(st.struct_len(), 4);
                 }
-                _ => unreachable!(),
+                _ => unreachable!("{path}"),
             }
         }
 
@@ -88,7 +88,7 @@ fn test_struct_traversing() {
                     assert_eq!(stv.variant_name(), "StructVariant");
                     assert_eq!(stv.struct_len(), 3);
                 }
-                _ => unreachable!(),
+                _ => unreachable!("{path}"),
             }
         }
     }

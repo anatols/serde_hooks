@@ -70,6 +70,8 @@ struct Payload<'s, 'b> {
     val_newtype: Newtype,
 
     val_map: BTreeMap<u32, u32>,
+
+    val_seq: Vec<u32>,
 }
 
 impl<'s, 'b> Payload<'s, 'b> {
@@ -105,6 +107,7 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_newtype_variant: Enum::NewtypeVariant(()),
             val_newtype: Newtype(()),
             val_map: [(1, 2), (3, 4)].into_iter().collect(),
+            val_seq: vec![1, 2, 3],
         }
     }
 
@@ -196,7 +199,11 @@ fn test_values() {
                 | ("val_newtype", Value::NewtypeStruct("Newtype"))
                 | ("val_map", Value::Map(Some(2)))
                 | ("val_map[1]", _)
-                | ("val_map[3]", _) => {}
+                | ("val_map[3]", _)
+                | ("val_seq", Value::Seq(Some(3)))
+                | ("val_seq[0]", _)
+                | ("val_seq[1]", _)
+                | ("val_seq[2]", _) => {}
 
                 ("val_f32", Value::F32(v)) => {
                     assert_eq!(v.partial_cmp(&32.0f32), Some(Ordering::Equal));
@@ -221,7 +228,7 @@ fn test_values() {
 }
 
 #[test]
-fn test_replace() {
+fn test_replace_in_struct() {
     let val_str = "str".to_string();
     let val_bytes: Vec<u8> = vec![1, 2];
 
@@ -266,6 +273,33 @@ fn test_replace() {
         val_newtype_variant: R val_newtype_variant
         val_newtype: R val_newtype
         val_map: R val_map
+        val_seq: R val_seq
+    "};
+
+    assert_eq!(
+        actual, expected,
+        "\n\nExpected YAML:\n\n{expected}\n\nActual YAML:\n\n{actual}\n\n"
+    );
+}
+
+#[test]
+fn test_replace_in_seq() {
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_value<S: serde::Serializer>(&self, value: &mut ser::ValueScope<S>) {
+            if !value.path().segments().is_empty() {
+                value.replace(&format!("R {}", value.path().to_string()));
+            }
+        }
+    }
+
+    let actual = serde_yaml::to_string(&ser::hook(&vec![0i32, 1, 2, 3], &Hooks)).unwrap();
+
+    let expected = indoc! {"
+        - R [0]
+        - R [1]
+        - R [2]
+        - R [3]
     "};
 
     assert_eq!(

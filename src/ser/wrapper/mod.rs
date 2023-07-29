@@ -1,10 +1,11 @@
 use serde::{Serialize, Serializer};
 
 mod map;
+mod seq;
 mod serializer;
 mod r#struct;
 
-use super::scope::{OnMapEntryActions, OnStructFieldActions, OnValueAction};
+use super::scope::{OnMapEntryActions, OnSeqElementActions, OnStructFieldActions, OnValueAction};
 use super::HooksError;
 use crate::path::PathSegment;
 
@@ -32,6 +33,8 @@ pub(crate) trait SerializerWrapperHooks {
     fn on_map_key<S: Serializer>(&self, serializer: S, key: crate::Value) -> OnValueAction<S>;
 
     fn on_value<S: Serializer>(&self, serializer: S, value: crate::Value) -> OnValueAction<S>;
+
+    fn on_seq(&self, len: Option<usize>) -> OnSeqElementActions;
 }
 
 #[derive(Debug, Copy, Clone)]
