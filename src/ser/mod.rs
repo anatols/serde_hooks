@@ -8,8 +8,8 @@ mod value;
 mod wrapper;
 
 pub use scope::{
-    EnumVariantScope, ErrorScope, MapKeyScope, MapKeySelector, MapScope, SeqManipulation, SeqScope,
-    StructScope, ValueScope,
+    EnumVariantScope, ErrorScope, MapKeyScope, MapKeySelector, MapScope, SeqScope, StructScope,
+    TupleScope, TupleStructScope, ValueScope,
 };
 
 use context::SerializableWithContext;
@@ -48,6 +48,33 @@ pub trait Hooks {
 
     #[allow(unused_variables)]
     fn on_value<S: Serializer>(&self, value: &mut ValueScope<S>) {}
+
+    /// Specifying any actions that may change the number of elements in the
+    /// sequence (e.g. retaining or skipping elements) will force this tuple to be
+    /// serialized as a sequence. Depending on the serializer you use, this might be
+    /// totally unsupported or lead to unexpected serialization results.
+    #[allow(unused_variables)]
+    fn on_tuple(&self, tpl: &mut TupleScope, seq: &mut SeqScope) {}
+
+    /// Specifying any actions that may change the number of elements in the
+    /// sequence (e.g. retaining or skipping elements) will force this tuple to be
+    /// serialized as a sequence. Depending on the serializer you use, this might be
+    /// totally unsupported or lead to unexpected serialization results.
+    #[allow(unused_variables)]
+    fn on_tuple_struct(&self, tpl: &mut TupleStructScope, seq: &mut SeqScope) {}
+
+    /// Specifying any actions that may change the number of elements in the
+    /// sequence (e.g. retaining or skipping elements) will force this tuple to be
+    /// serialized as a sequence. Depending on the serializer you use, this might be
+    /// totally unsupported or lead to unexpected serialization results.
+    #[allow(unused_variables)]
+    fn on_tuple_variant(
+        &self,
+        ev: &mut EnumVariantScope,
+        tpl: &mut TupleScope,
+        seq: &mut SeqScope,
+    ) {
+    }
 }
 
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]

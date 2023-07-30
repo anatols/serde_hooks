@@ -1,4 +1,4 @@
-use serde::ser::SerializeSeq;
+use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant};
 use serde::{Serialize, Serializer};
 
 use crate::ser::scope::{OnSeqElementActions, SeqElementAction};
@@ -9,6 +9,9 @@ use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrap
 
 pub(crate) enum Wrap<S: Serializer> {
     SerializeSeq(S::SerializeSeq),
+    SerializeTuple(S::SerializeTuple),
+    SerializeTupleStruct(S::SerializeTupleStruct),
+    SerializeTupleVariant(S::SerializeTupleVariant),
 }
 
 impl<S: Serializer> Wrap<S> {
@@ -18,12 +21,18 @@ impl<S: Serializer> Wrap<S> {
     {
         match self {
             Wrap::SerializeSeq(s) => s.serialize_element(value),
+            Wrap::SerializeTuple(s) => s.serialize_element(value),
+            Wrap::SerializeTupleStruct(s) => s.serialize_field(value),
+            Wrap::SerializeTupleVariant(s) => s.serialize_field(value),
         }
     }
 
     fn end(self) -> Result<S::Ok, S::Error> {
         match self {
             Wrap::SerializeSeq(s) => s.end(),
+            Wrap::SerializeTuple(s) => s.end(),
+            Wrap::SerializeTupleStruct(s) => s.end(),
+            Wrap::SerializeTupleVariant(s) => s.end(),
         }
     }
 }
@@ -51,9 +60,49 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
         Self::Wrapped {
             wrap: Wrap::SerializeSeq(serialize_seq),
             hooks,
-            have_retains: actions
-                .iter()
-                .any(|a| matches!(a, SeqElementAction::Retain(_))),
+            have_retains: actions_have_retains(&actions),
+            actions,
+            current_index: 0,
+        }
+    }
+
+    pub(super) fn new_wrapped_tuple(
+        serialize_tuple: S::SerializeTuple,
+        hooks: &'h H,
+        actions: OnSeqElementActions,
+    ) -> Self {
+        Self::Wrapped {
+            wrap: Wrap::SerializeTuple(serialize_tuple),
+            hooks,
+            have_retains: actions_have_retains(&actions),
+            actions,
+            current_index: 0,
+        }
+    }
+
+    pub(super) fn new_wrapped_tuple_struct(
+        serialize_tuple_struct: S::SerializeTupleStruct,
+        hooks: &'h H,
+        actions: OnSeqElementActions,
+    ) -> Self {
+        Self::Wrapped {
+            wrap: Wrap::SerializeTupleStruct(serialize_tuple_struct),
+            hooks,
+            have_retains: actions_have_retains(&actions),
+            actions,
+            current_index: 0,
+        }
+    }
+
+    pub(super) fn new_wrapped_tuple_variant(
+        serialize_tuple_variant: S::SerializeTupleVariant,
+        hooks: &'h H,
+        actions: OnSeqElementActions,
+    ) -> Self {
+        Self::Wrapped {
+            wrap: Wrap::SerializeTupleVariant(serialize_tuple_variant),
+            hooks,
+            have_retains: actions_have_retains(&actions),
             actions,
             current_index: 0,
         }
@@ -158,6 +207,12 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
     }
 }
 
+fn actions_have_retains(actions: &OnSeqElementActions) -> bool {
+    actions
+        .iter()
+        .any(|a| matches!(a, SeqElementAction::Retain(_)))
+}
+
 impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeSeq
     for SerializeSeqWrapper<'h, S, H>
 {
@@ -165,6 +220,60 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeSeq
     type Error = S::Error;
 
     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        self.serialize_element(value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.end()
+    }
+}
+
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeTuple
+    for SerializeSeqWrapper<'h, S, H>
+{
+    type Ok = S::Ok;
+    type Error = S::Error;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        self.serialize_element(value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.end()
+    }
+}
+
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeTupleStruct
+    for SerializeSeqWrapper<'h, S, H>
+{
+    type Ok = S::Ok;
+    type Error = S::Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        self.serialize_element(value)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        self.end()
+    }
+}
+
+impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeTupleVariant
+    for SerializeSeqWrapper<'h, S, H>
+{
+    type Ok = S::Ok;
+    type Error = S::Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: Serialize,
     {

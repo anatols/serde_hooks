@@ -1,10 +1,7 @@
 use std::{cell::RefCell, collections::HashSet};
 
 use serde::Serialize;
-use serde_hooks::{
-    ser::{self, SeqManipulation},
-    StaticValue,
-};
+use serde_hooks::{ser, StaticValue};
 
 #[test]
 fn test_seq_traversing() {

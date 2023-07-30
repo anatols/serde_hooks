@@ -18,12 +18,16 @@ struct Struct {
     struct_val: (),
 }
 
+#[derive(Serialize)]
+struct TupleStruct((), ());
+
 #[allow(clippy::enum_variant_names)]
 #[derive(Serialize)]
 enum Enum {
     UnitVariant,
     NewtypeVariant(()),
     StructVariant { struct_variant_val: () },
+    TupleVariant((), ()),
 }
 
 #[derive(Serialize)]
@@ -61,17 +65,20 @@ struct Payload<'s, 'b> {
     val_none: Option<()>,
     val_some: Option<()>,
 
-    val_unit_struct: UnitStruct,
     val_struct: Struct,
-    val_struct_variant: Enum,
+    val_newtype: Newtype,
+    val_unit_struct: UnitStruct,
+    val_tuple_struct: TupleStruct,
 
+    val_struct_variant: Enum,
     val_unit_variant: Enum,
     val_newtype_variant: Enum,
-    val_newtype: Newtype,
+    val_tuple_variant: Enum,
 
     val_map: BTreeMap<u32, u32>,
 
     val_seq: Vec<u32>,
+    val_tuple: ((), (), ()),
 }
 
 impl<'s, 'b> Payload<'s, 'b> {
@@ -95,19 +102,27 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_bytes,
             val_bytes_static: &[2, 3, 4],
             val_bytes_owned: [3, 4, 5, 6].into(),
+
             val_unit: (),
             val_none: None,
             val_some: Some(()),
-            val_unit_struct: UnitStruct,
+
             val_struct: Struct { struct_val: () },
+            val_newtype: Newtype(()),
+            val_unit_struct: UnitStruct,
+            val_tuple_struct: TupleStruct((), ()),
+
             val_struct_variant: Enum::StructVariant {
                 struct_variant_val: (),
             },
             val_unit_variant: Enum::UnitVariant,
             val_newtype_variant: Enum::NewtypeVariant(()),
-            val_newtype: Newtype(()),
+            val_tuple_variant: Enum::TupleVariant((), ()),
+
             val_map: [(1, 2), (3, 4)].into_iter().collect(),
+
             val_seq: vec![1, 2, 3],
+            val_tuple: ((), (), ()),
         }
     }
 
@@ -161,7 +176,6 @@ fn test_values() {
                 | ("val_unit", Value::Unit)
                 | ("val_none", Value::None)
                 | ("val_some", Value::Some)
-                | ("val_unit_struct", Value::UnitStruct("UnitStruct"))
                 | (
                     "val_struct",
                     Value::Struct {
@@ -170,6 +184,17 @@ fn test_values() {
                     },
                 )
                 | ("val_struct.struct_val", _)
+                | ("val_newtype", Value::NewtypeStruct("Newtype"))
+                | ("val_unit_struct", Value::UnitStruct("UnitStruct"))
+                | (
+                    "val_tuple_struct",
+                    Value::TupleStruct {
+                        name: "TupleStruct",
+                        len: 2,
+                    },
+                )
+                | ("val_tuple_struct[0]", Value::Unit)
+                | ("val_tuple_struct[1]", Value::Unit)
                 | (
                     "val_unit_variant",
                     Value::UnitVariant {
@@ -195,15 +220,29 @@ fn test_values() {
                         len: 1,
                     },
                 )
+                | (
+                    "val_tuple_variant",
+                    Value::TupleVariant {
+                        name: "Enum",
+                        variant_index: 3,
+                        variant: "TupleVariant",
+                        len: 2,
+                    },
+                )
+                | ("val_tuple_variant[0]", Value::Unit)
+                | ("val_tuple_variant[1]", Value::Unit)
                 | ("val_struct_variant.struct_variant_val", _)
-                | ("val_newtype", Value::NewtypeStruct("Newtype"))
                 | ("val_map", Value::Map(Some(2)))
                 | ("val_map[1]", _)
                 | ("val_map[3]", _)
                 | ("val_seq", Value::Seq(Some(3)))
-                | ("val_seq[0]", _)
-                | ("val_seq[1]", _)
-                | ("val_seq[2]", _) => {}
+                | ("val_seq[0]", Value::U32(1))
+                | ("val_seq[1]", Value::U32(2))
+                | ("val_seq[2]", Value::U32(3))
+                | ("val_tuple", Value::Tuple(3))
+                | ("val_tuple[0]", Value::Unit)
+                | ("val_tuple[1]", Value::Unit)
+                | ("val_tuple[2]", Value::Unit) => {}
 
                 ("val_f32", Value::F32(v)) => {
                     assert_eq!(v.partial_cmp(&32.0f32), Some(Ordering::Equal));
@@ -266,14 +305,17 @@ fn test_replace_in_struct() {
         val_unit: R val_unit
         val_none: R val_none
         val_some: R val_some
-        val_unit_struct: R val_unit_struct
         val_struct: R val_struct
+        val_newtype: R val_newtype
+        val_unit_struct: R val_unit_struct
+        val_tuple_struct: R val_tuple_struct
         val_struct_variant: R val_struct_variant
         val_unit_variant: R val_unit_variant
         val_newtype_variant: R val_newtype_variant
-        val_newtype: R val_newtype
+        val_tuple_variant: R val_tuple_variant
         val_map: R val_map
         val_seq: R val_seq
+        val_tuple: R val_tuple
     "};
 
     assert_eq!(

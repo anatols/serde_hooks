@@ -3,7 +3,8 @@ use std::{cell::RefCell, rc::Rc};
 use serde::{Serialize, Serializer};
 
 use super::scope::{
-    self, EnumVariantScope, ErrorScope, MapKeyScope, MapScope, SeqScope, StructScope, ValueScope,
+    self, EnumVariantScope, ErrorScope, MapKeyScope, MapScope, SeqScope, StructScope, TupleScope,
+    TupleStructScope, ValueScope,
 };
 use super::wrapper;
 use crate::path::{Path, PathSegment};
@@ -155,6 +156,56 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         hooks.on_enum_variant(&mut variant_scope);
 
         variant_scope.into_actions()
+    }
+
+    fn on_tuple(&self, len: usize) -> scope::OnSeqElementActions {
+        let path = &self.inner.borrow().path;
+
+        let mut tuple_scope = TupleScope::new(path, len);
+        let mut seq_scope = SeqScope::new(path, Some(len));
+
+        let hooks = self.inner.borrow().hooks;
+
+        hooks.on_tuple(&mut tuple_scope, &mut seq_scope);
+
+        seq_scope.into_actions()
+    }
+
+    fn on_tuple_struct(&self, name: &'static str, len: usize) -> scope::OnSeqElementActions {
+        let path = &self.inner.borrow().path;
+
+        let mut tuple_scope = TupleScope::new(path, len);
+        let mut tuple_struct_scope = TupleStructScope::new(path, name, len);
+        let mut seq_scope = SeqScope::new(path, Some(len));
+
+        let hooks = self.inner.borrow().hooks;
+
+        hooks.on_tuple(&mut tuple_scope, &mut seq_scope);
+        hooks.on_tuple_struct(&mut tuple_struct_scope, &mut seq_scope);
+
+        seq_scope.into_actions()
+    }
+
+    fn on_tuple_variant(
+        &self,
+        enum_name: &'static str,
+        variant_index: u32,
+        variant_name: &'static str,
+        len: usize,
+    ) -> (scope::OnVariantActions, scope::OnSeqElementActions) {
+        let path = &self.inner.borrow().path;
+
+        let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
+        let mut tuple_scope = TupleScope::new(path, len);
+        let mut seq_scope = SeqScope::new(path, Some(len));
+
+        let hooks = self.inner.borrow().hooks;
+
+        hooks.on_enum_variant(&mut variant_scope);
+        hooks.on_tuple(&mut tuple_scope, &mut seq_scope);
+        hooks.on_tuple_variant(&mut variant_scope, &mut tuple_scope, &mut seq_scope);
+
+        (variant_scope.into_actions(), seq_scope.into_actions())
     }
 }
 

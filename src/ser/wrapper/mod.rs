@@ -51,6 +51,18 @@ pub(crate) trait SerializerWrapperHooks {
     fn on_value<S: Serializer>(&self, serializer: S, value: crate::Value) -> OnValueAction<S>;
 
     fn on_seq(&self, len: Option<usize>) -> OnSeqElementActions;
+
+    fn on_tuple(&self, len: usize) -> OnSeqElementActions;
+
+    fn on_tuple_struct(&self, name: &'static str, len: usize) -> OnSeqElementActions;
+
+    fn on_tuple_variant(
+        &self,
+        enum_name: &'static str,
+        variant_index: u32,
+        variant_name: &'static str,
+        len: usize,
+    ) -> (OnVariantActions, OnSeqElementActions);
 }
 
 #[derive(Debug, Copy, Clone)]
