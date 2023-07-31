@@ -1,10 +1,12 @@
 use std::fmt::{Debug, Display, Write};
 
+use smallvec::SmallVec;
+
 use crate::{StaticValue, Value};
 
 #[derive(Debug, Default)]
 pub struct Path {
-    segments: Vec<PathSegment>,
+    segments: SmallVec<[PathSegment; 8]>,
 }
 
 impl Path {
