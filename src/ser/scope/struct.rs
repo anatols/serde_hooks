@@ -57,6 +57,7 @@ impl<'p> StructScope<'p> {
         self
     }
 
+    //TODO add rename_field_case
     //TODO better docs - explain about static strings
     /// Rename a field.
     ///
@@ -85,7 +86,7 @@ impl<'p> StructScope<'p> {
     /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
     /// `#[serde(rename_all=...)]`, those renames will be applied first. See [Case](crate::Case) for more information
     /// and caveats of case conversion.
-    pub fn rename_all_fields(&mut self, case: Case) -> &mut Self {
+    pub fn rename_all_fields_case(&mut self, case: Case) -> &mut Self {
         self.actions.push(StructFieldAction::RenameAll(case));
         self
     }
