@@ -47,21 +47,13 @@ impl ToString for Path {
 /// allocation on every map key.
 #[derive(Debug, Clone)]
 pub struct PathMapKey {
-    index: usize,
-    value: StaticValue,
+    pub index: usize,
+    pub value: StaticValue,
 }
 
 impl PathMapKey {
     pub(crate) fn new(index: usize, value: StaticValue) -> Self {
         Self { index, value }
-    }
-
-    pub(crate) fn index(&self) -> usize {
-        self.index
-    }
-
-    pub(crate) fn value(&self) -> &Value {
-        &self.value
     }
 }
 

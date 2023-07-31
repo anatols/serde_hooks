@@ -140,7 +140,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                         MapEntryAction::ReplaceKey(k, v) => {
                             let matches = k.matches_path_key(&map_key);
                             if matches {
-                                map_key = PathMapKey::new(map_key.index(), v.clone());
+                                map_key = PathMapKey::new(map_key.index, v.clone());
                                 replacement_key = Some(v.clone());
                             }
                             !matches
