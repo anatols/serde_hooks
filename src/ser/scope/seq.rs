@@ -11,13 +11,13 @@ pub(crate) enum SeqElementAction {
 
 pub(crate) type OnSeqElementActions = SmallVec<[SeqElementAction; 8]>;
 
+//TODO add support for insert before, insert after, push back
 pub struct SeqScope<'p> {
     path: &'p Path,
     seq_len: Option<usize>,
     actions: OnSeqElementActions,
 }
 
-//TODO add support for insert before, insert after, push back
 impl<'p> SeqScope<'p> {
     pub(crate) fn new(path: &'p Path, seq_len: Option<usize>) -> Self {
         Self {

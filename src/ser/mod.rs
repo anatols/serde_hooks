@@ -14,12 +14,6 @@ pub use scope::{
 
 use context::SerializableWithContext;
 
-//TODO add support for:
-// rename key free-form & cases
-// flatten?
-// convert struct to map
-// sequences & tuples
-
 pub trait Hooks {
     fn start(&self) {}
 

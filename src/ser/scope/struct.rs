@@ -14,6 +14,10 @@ pub(crate) enum StructFieldAction {
 
 pub(crate) type OnStructFieldActions = SmallVec<[StructFieldAction; 8]>;
 
+
+//TODO add support for flatten and serialize_as_map
+//TODO add rename_field_case
+
 pub struct StructScope<'p> {
     path: &'p Path,
     struct_len: usize,
@@ -57,7 +61,6 @@ impl<'p> StructScope<'p> {
         self
     }
 
-    //TODO add rename_field_case
     //TODO better docs - explain about static strings
     /// Rename a field.
     ///

@@ -211,13 +211,13 @@ fn test_rename_all_fields() {
     impl ser::Hooks for Hooks {
         fn on_struct(&self, st: &mut ser::StructScope) {
             if st.path().segments().is_empty() {
-                st.rename_all_fields("PascalCase".into())
+                st.rename_all_fields_case("PascalCase".into())
                     .rename_field("BAR-BAZ", "bbz");
             }
         }
 
         fn on_struct_variant(&self, _ev: &mut ser::EnumVariantScope, st: &mut ser::StructScope) {
-            st.rename_all_fields(Case::ScreamingSnake);
+            st.rename_all_fields_case(Case::ScreamingSnake);
         }
     }
 

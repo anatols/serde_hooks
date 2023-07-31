@@ -16,6 +16,8 @@ pub(crate) enum MapEntryAction {
 
 pub(crate) type OnMapEntryActions = SmallVec<[MapEntryAction; 8]>;
 
+//TODO add support for rename_key_case and rename_all_keys_case
+//TODO add support for add_entry_before, add_entry_after, push_entry
 pub struct MapScope<'p> {
     path: &'p Path,
     map_len: Option<usize>,
@@ -63,6 +65,7 @@ impl<'p> MapScope<'p> {
         self
     }
 
+    //TODO is this needed at all?
     pub fn add_entry_on_serialize(&mut self, key: impl Into<MapKeySelector>) -> &mut Self {
         self.actions.push(MapEntryAction::Add(key.into(), None));
         self
@@ -80,6 +83,7 @@ impl<'p> MapScope<'p> {
         self
     }
 
+    //TODO is this needed at all?
     pub fn add_or_replace_entry_on_serialize(
         &mut self,
         key: impl Into<MapKeySelector>,
@@ -115,7 +119,6 @@ impl<'p> MapScope<'p> {
         self
     }
 
-    //TODO play better with cows, no need to do to_owned all for &'static str
     pub fn rename_key(
         &mut self,
         key: impl Into<MapKeySelector>,
