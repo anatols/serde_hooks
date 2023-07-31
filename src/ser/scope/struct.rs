@@ -54,7 +54,7 @@ impl<'p> StructScope<'p> {
     //TODO better docs - explain about static strings
     /// Rename a field.
     ///
-    /// The `key` refers to the original field key in the struct, even if [rename_all](StructManipulation::rename_all)
+    /// The `key` refers to the original field key in the struct, even if [rename_all_fields_case](Self::rename_all_fields_case)
     /// is called.
     ///
     /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
@@ -73,7 +73,7 @@ impl<'p> StructScope<'p> {
     ///
     /// If specified multiple times, the last case convention is used.
     ///
-    /// Calling [rename_field](StructManipulation::rename_field) on specific fields will override
+    /// Calling [rename_field](Self::rename_field) on specific fields will override
     /// this case convention.
     ///
     /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
