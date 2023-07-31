@@ -110,7 +110,7 @@ pub enum HooksError {
 /// }
 ///
 /// struct UserHooks {
-///     hide_passwords: bool
+///     hide_passwords: bool,
 /// };
 ///
 /// impl ser::Hooks for UserHooks {
@@ -130,7 +130,13 @@ pub enum HooksError {
 ///     full_name: "John Doe".into(),
 ///     password: "AKJHDKSHD".into(),
 /// };
-/// let json = serde_json::to_string(&ser::hook(&user, &UserHooks { hide_passwords: true } )).unwrap();
+/// let json = serde_json::to_string(&ser::hook(
+///     &user,
+///     &UserHooks {
+///         hide_passwords: true,
+///     },
+/// ))
+/// .unwrap();
 ///
 /// assert_eq!(json, r#"{"FULL_NAME":"John Doe"}"#);
 /// ```
