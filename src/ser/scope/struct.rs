@@ -79,8 +79,8 @@ impl<'p> StructScope<'p> {
     /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
     /// `#[serde(rename_all=...)]`, those renames will be applied first. See [Case](crate::Case) for more information
     /// and caveats of case conversion.
-    pub fn rename_all_fields_case(&mut self, case: Case) -> &mut Self {
-        self.actions.push(StructFieldAction::RenameAll(case));
+    pub fn rename_all_fields_case(&mut self, case: impl Into<Case>) -> &mut Self {
+        self.actions.push(StructFieldAction::RenameAll(case.into()));
         self
     }
 
