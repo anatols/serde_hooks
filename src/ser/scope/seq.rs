@@ -1,21 +1,13 @@
-use smallvec::SmallVec;
-
-use crate::{Path, StaticValue};
-
-#[derive(Debug)]
-pub(crate) enum SeqElementAction {
-    Retain(usize),
-    Skip(usize),
-    ReplaceValue(usize, StaticValue),
-}
-
-pub(crate) type OnSeqElementActions = SmallVec<[SeqElementAction; 8]>;
+use crate::{
+    ser::wrapper::{SeqElementAction, SeqElementActions},
+    Path, StaticValue,
+};
 
 //TODO add support for insert before, insert after, push back
 pub struct SeqScope<'p> {
     path: &'p Path,
     seq_len: Option<usize>,
-    actions: OnSeqElementActions,
+    actions: SeqElementActions,
 }
 
 impl<'p> SeqScope<'p> {
@@ -27,7 +19,7 @@ impl<'p> SeqScope<'p> {
         }
     }
 
-    pub(crate) fn into_actions(self) -> OnSeqElementActions {
+    pub(crate) fn into_actions(self) -> SeqElementActions {
         self.actions
     }
 

@@ -1,27 +1,17 @@
 use std::{borrow::Cow, fmt::Display};
 
-use smallvec::SmallVec;
-
-use crate::{path::PathMapKey, Path, StaticValue};
-
-#[derive(Debug)]
-pub(crate) enum MapEntryAction {
-    Retain(MapKeySelector),
-    Skip(MapKeySelector),
-    Add(MapKeySelector, Option<StaticValue>),
-    Replace(MapKeySelector, Option<StaticValue>),
-    ReplaceOrAdd(MapKeySelector, Option<StaticValue>),
-    ReplaceKey(MapKeySelector, StaticValue),
-}
-
-pub(crate) type OnMapEntryActions = SmallVec<[MapEntryAction; 8]>;
+use crate::{
+    path::PathMapKey,
+    ser::wrapper::{MapEntryAction, MapEntryActions},
+    Path, StaticValue,
+};
 
 //TODO add support for rename_key_case and rename_all_keys_case
 //TODO add support for add_entry_before, add_entry_after, push_entry
 pub struct MapScope<'p> {
     path: &'p Path,
     map_len: Option<usize>,
-    actions: OnMapEntryActions,
+    actions: MapEntryActions,
 }
 
 impl<'p> MapScope<'p> {
@@ -33,7 +23,7 @@ impl<'p> MapScope<'p> {
         }
     }
 
-    pub(crate) fn into_actions(self) -> OnMapEntryActions {
+    pub(crate) fn into_actions(self) -> MapEntryActions {
         self.actions
     }
 

@@ -15,9 +15,3 @@ pub use value::ValueScope;
 pub use variant::EnumVariantScope;
 
 pub type MapKeyScope<'p, 'v, S> = ValueScope<'p, 'v, S>;
-
-pub(crate) use map::{MapEntryAction, OnMapEntryActions};
-pub(crate) use r#struct::{OnStructFieldActions, StructFieldAction};
-pub(crate) use seq::{OnSeqElementActions, SeqElementAction};
-pub(crate) use value::OnValueAction;
-pub(crate) use variant::{OnVariantActions, VariantAction};

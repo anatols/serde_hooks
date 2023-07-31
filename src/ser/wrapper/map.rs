@@ -4,18 +4,20 @@ use std::{cell::Cell, fmt::Display};
 use serde::{ser::Impossible, Serialize, Serializer};
 
 use crate::path::PathMapKey;
-use crate::ser::scope::{MapEntryAction, OnMapEntryActions};
 use crate::ser::{HooksError, MapKeySelector};
 use crate::Value;
 
-use super::{SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
+use super::{
+    MapEntryAction, MapEntryActions, SerializableKind, SerializableWithHooks,
+    SerializerWrapperHooks,
+};
 
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     Wrapped {
         serialize_map: S::SerializeMap,
         hooks: &'h H,
-        actions: OnMapEntryActions,
+        actions: MapEntryActions,
         have_retains: bool,
         entry_index: Cell<usize>,
     },
@@ -28,7 +30,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H>
     pub(super) fn new_wrapped(
         serialize_map: S::SerializeMap,
         hooks: &'h H,
-        actions: OnMapEntryActions,
+        actions: MapEntryActions,
     ) -> Self {
         Self::Wrapped {
             serialize_map,

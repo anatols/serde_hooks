@@ -1,25 +1,16 @@
 use std::borrow::Cow;
 
-use smallvec::SmallVec;
-
-use crate::{Case, Path};
-
-pub(crate) enum VariantAction {
-    RenameEnumCase(Case),
-    RenameEnum(Cow<'static, str>),
-    RenameVariantCase(Case),
-    RenameVariant(Cow<'static, str>),
-    ChangeVariantIndex(u32),
-}
-
-pub(crate) type OnVariantActions = SmallVec<[VariantAction; 8]>;
+use crate::{
+    ser::wrapper::{VariantAction, VariantActions},
+    Case, Path,
+};
 
 pub struct EnumVariantScope<'p> {
     path: &'p Path,
     enum_name: &'static str,
     variant_name: &'static str,
     variant_index: u32,
-    actions: OnVariantActions,
+    actions: VariantActions,
 }
 
 impl<'p> EnumVariantScope<'p> {
@@ -38,7 +29,7 @@ impl<'p> EnumVariantScope<'p> {
         }
     }
 
-    pub(crate) fn into_actions(self) -> OnVariantActions {
+    pub(crate) fn into_actions(self) -> VariantActions {
         self.actions
     }
 

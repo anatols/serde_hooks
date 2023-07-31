@@ -3,12 +3,14 @@ use std::borrow::Cow;
 use serde::ser::{SerializeStruct, SerializeStructVariant};
 use serde::{Serialize, Serializer};
 
-use crate::ser::scope::{OnStructFieldActions, StructFieldAction};
 use crate::ser::HooksError;
 use crate::static_str::into_static_str;
 use crate::{Case, Value};
 
-use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
+use super::{
+    PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks,
+    StructFieldAction, StructFieldActions,
+};
 
 pub(crate) enum Wrap<S: Serializer> {
     SerializeStruct(S::SerializeStruct),
@@ -46,7 +48,7 @@ pub(crate) enum SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHo
     Wrapped {
         wrap: Wrap<S>,
         hooks: &'h H,
-        actions: OnStructFieldActions,
+        actions: StructFieldActions,
         have_retains: bool,
         rename_all: Option<Case>,
     },
@@ -59,7 +61,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
     pub(super) fn new_wrapped_struct(
         serialize_struct: S::SerializeStruct,
         hooks: &'h H,
-        actions: OnStructFieldActions,
+        actions: StructFieldActions,
     ) -> Self {
         Self::Wrapped {
             wrap: Wrap::SerializeStruct(serialize_struct),
@@ -78,7 +80,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
     pub(super) fn new_wrapped_struct_variant(
         serialize_struct_variant: S::SerializeStructVariant,
         hooks: &'h H,
-        actions: OnStructFieldActions,
+        actions: StructFieldActions,
     ) -> Self {
         Self::Wrapped {
             wrap: Wrap::SerializeStructVariant(serialize_struct_variant),

@@ -1,12 +1,15 @@
 use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant};
 use serde::{Serialize, Serializer};
 
-use crate::ser::scope::{OnSeqElementActions, SeqElementAction};
 use crate::ser::HooksError;
 use crate::Value;
 
-use super::{PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks};
+use super::{
+    PathSegment, SeqElementAction, SeqElementActions, SerializableKind, SerializableWithHooks,
+    SerializerWrapperHooks,
+};
 
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum Wrap<S: Serializer> {
     SerializeSeq(S::SerializeSeq),
     SerializeTuple(S::SerializeTuple),
@@ -42,7 +45,7 @@ pub(crate) enum SerializeSeqWrapper<'h, S: Serializer, H: SerializerWrapperHooks
     Wrapped {
         wrap: Wrap<S>,
         hooks: &'h H,
-        actions: OnSeqElementActions,
+        actions: SeqElementActions,
         have_retains: bool,
         current_index: usize,
     },
@@ -55,7 +58,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
     pub(super) fn new_wrapped_seq(
         serialize_seq: S::SerializeSeq,
         hooks: &'h H,
-        actions: OnSeqElementActions,
+        actions: SeqElementActions,
     ) -> Self {
         Self::Wrapped {
             wrap: Wrap::SerializeSeq(serialize_seq),
@@ -69,7 +72,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
     pub(super) fn new_wrapped_tuple(
         serialize_tuple: S::SerializeTuple,
         hooks: &'h H,
-        actions: OnSeqElementActions,
+        actions: SeqElementActions,
     ) -> Self {
         Self::Wrapped {
             wrap: Wrap::SerializeTuple(serialize_tuple),
@@ -83,7 +86,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
     pub(super) fn new_wrapped_tuple_struct(
         serialize_tuple_struct: S::SerializeTupleStruct,
         hooks: &'h H,
-        actions: OnSeqElementActions,
+        actions: SeqElementActions,
     ) -> Self {
         Self::Wrapped {
             wrap: Wrap::SerializeTupleStruct(serialize_tuple_struct),
@@ -97,7 +100,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
     pub(super) fn new_wrapped_tuple_variant(
         serialize_tuple_variant: S::SerializeTupleVariant,
         hooks: &'h H,
-        actions: OnSeqElementActions,
+        actions: SeqElementActions,
     ) -> Self {
         Self::Wrapped {
             wrap: Wrap::SerializeTupleVariant(serialize_tuple_variant),
@@ -207,7 +210,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
     }
 }
 
-fn actions_have_retains(actions: &OnSeqElementActions) -> bool {
+fn actions_have_retains(actions: &SeqElementActions) -> bool {
     actions
         .iter()
         .any(|a| matches!(a, SeqElementAction::Retain(_)))

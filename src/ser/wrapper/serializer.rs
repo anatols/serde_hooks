@@ -5,9 +5,9 @@ use serde::{Serialize, Serializer};
 use super::map::SerializeMapWrapper;
 use super::r#struct::SerializeStructWrapper;
 use super::seq::SerializeSeqWrapper;
-use super::{SerializableKind, SerializerWrapperHooks};
-use crate::ser::scope::{
-    OnSeqElementActions, OnValueAction, OnVariantActions, SeqElementAction, VariantAction,
+use super::{
+    SeqElementAction, SeqElementActions, SerializableKind, SerializerWrapperHooks, ValueAction,
+    VariantAction, VariantActions,
 };
 use crate::static_str::into_static_str;
 use crate::Case;
@@ -63,8 +63,8 @@ macro_rules! value_serialize {
         {
             let value_action = on_value_callback!(self $variant $(, $arg : $type)*);
             match value_action {
-                OnValueAction::ContinueSerialization(s) => s.$fn($($arg,)* $($v)?),
-                OnValueAction::ValueReplaced(r) => r,
+                ValueAction::ContinueSerialization(s) => s.$fn($($arg,)* $($v)?),
+                ValueAction::ValueReplaced(r) => r,
             }
         }
     };
@@ -112,8 +112,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         );
 
         match value_action {
-            OnValueAction::ValueReplaced(r) => r,
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => r,
+            ValueAction::ContinueSerialization(s) => {
                 let variant_actions = self.hooks.on_unit_variant(name, variant, variant_index);
                 let (name, variant_index, variant) =
                     apply_variant_actions(name, variant_index, variant, variant_actions);
@@ -139,8 +139,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         );
 
         match value_action {
-            OnValueAction::ValueReplaced(r) => r,
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => r,
+            ValueAction::ContinueSerialization(s) => {
                 let variant_actions = self.hooks.on_newtype_variant(name, variant, variant_index);
                 let (name, variant_index, variant) =
                     apply_variant_actions(name, variant_index, variant, variant_actions);
@@ -170,8 +170,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             len: Option<usize>
         );
         match value_action {
-            OnValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
+            ValueAction::ContinueSerialization(s) => {
                 let actions = self.hooks.on_seq(len);
                 s.serialize_seq(if actions.is_empty() { len } else { None })
                     .map(|serialize_seq| {
@@ -186,8 +186,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             len: usize
         );
         match value_action {
-            OnValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
+            ValueAction::ContinueSerialization(s) => {
                 let seq_actions = self.hooks.on_tuple(len);
                 if seq_actions_may_change_length(&seq_actions) {
                     // If length may be changed, we force serialization of this tuple
@@ -218,8 +218,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             len: usize
         );
         match value_action {
-            OnValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
+            ValueAction::ContinueSerialization(s) => {
                 let seq_actions = self.hooks.on_tuple_struct(name, len);
                 if seq_actions_may_change_length(&seq_actions) {
                     // If length may be changed, we force serialization of this tuple
@@ -256,8 +256,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
         );
 
         match value_action {
-            OnValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
+            ValueAction::ContinueSerialization(s) => {
                 let (variant_actions, seq_actions) =
                     self.hooks
                         .on_tuple_variant(name, variant_index, variant, len);
@@ -289,8 +289,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             len: Option<usize>
         );
         match value_action {
-            OnValueAction::ValueReplaced(r) => Ok(SerializeMapWrapper::new_skipped(r)),
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => Ok(SerializeMapWrapper::new_skipped(r)),
+            ValueAction::ContinueSerialization(s) => {
                 let actions = self.hooks.on_map(len);
                 s.serialize_map(if actions.is_empty() { len } else { None })
                     .map(|serialize_map| {
@@ -310,8 +310,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             len: usize
         );
         match value_action {
-            OnValueAction::ValueReplaced(r) => Ok(SerializeStructWrapper::new_skipped(r)),
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => Ok(SerializeStructWrapper::new_skipped(r)),
+            ValueAction::ContinueSerialization(s) => {
                 let actions = self.hooks.on_struct(len, name);
                 s.serialize_struct(name, len).map(|serialize_struct| {
                     SerializeStructWrapper::new_wrapped_struct(
@@ -338,8 +338,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             len: usize
         );
         match value_action {
-            OnValueAction::ValueReplaced(r) => Ok(SerializeStructWrapper::new_skipped(r)),
-            OnValueAction::ContinueSerialization(s) => {
+            ValueAction::ValueReplaced(r) => Ok(SerializeStructWrapper::new_skipped(r)),
+            ValueAction::ContinueSerialization(s) => {
                 let (variant_actions, struct_actions) =
                     self.hooks
                         .on_struct_variant(len, name, variant, variant_index);
@@ -365,7 +365,7 @@ fn apply_variant_actions(
     name: &'static str,
     variant_index: u32,
     variant: &'static str,
-    actions: OnVariantActions,
+    actions: VariantActions,
 ) -> (&'static str, u32, &'static str) {
     let mut new_name: Option<Cow<'static, str>> = None;
     let mut enum_case: Option<Case> = None;
@@ -410,9 +410,8 @@ fn apply_variant_actions(
     )
 }
 
-fn seq_actions_may_change_length(actions: &OnSeqElementActions) -> bool {
+fn seq_actions_may_change_length(actions: &SeqElementActions) -> bool {
     actions
         .iter()
-        .find(|a| matches!(a, SeqElementAction::Retain(_) | SeqElementAction::Skip(_)))
-        .is_some()
+        .any(|a| matches!(a, SeqElementAction::Retain(_) | SeqElementAction::Skip(_)))
 }

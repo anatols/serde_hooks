@@ -3,10 +3,13 @@ use std::{cell::RefCell, rc::Rc};
 use serde::{Serialize, Serializer};
 
 use super::scope::{
-    self, EnumVariantScope, ErrorScope, MapKeyScope, MapScope, SeqScope, StructScope, TupleScope,
+    EnumVariantScope, ErrorScope, MapKeyScope, MapScope, SeqScope, StructScope, TupleScope,
     TupleStructScope, ValueScope,
 };
-use super::wrapper;
+use super::wrapper::{
+    MapEntryActions, SeqElementActions, SerializableKind, SerializerWrapper,
+    SerializerWrapperHooks, StructFieldActions, ValueAction, VariantActions,
+};
 use crate::path::{Path, PathSegment};
 use crate::ser::{Hooks, HooksError};
 use crate::Value;
@@ -31,10 +34,10 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, 
         S: Serializer,
     {
         self.context.start();
-        let res = self.serializable.serialize(wrapper::SerializerWrapper::new(
+        let res = self.serializable.serialize(SerializerWrapper::new(
             serializer,
             &self.context,
-            wrapper::SerializableKind::Value,
+            SerializableKind::Value,
         ));
         self.context.end();
         res
@@ -46,7 +49,7 @@ pub struct Context<'h, H: Hooks> {
     inner: Rc<RefCell<ContextInner<'h, H>>>,
 }
 
-impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
+impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
     fn path_push(&self, segment: PathSegment) {
         self.inner.borrow_mut().path.push_segment(segment);
     }
@@ -55,18 +58,14 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         self.inner.borrow_mut().path.pop_segment();
     }
 
-    fn on_map(&self, map_len: Option<usize>) -> scope::OnMapEntryActions {
+    fn on_map(&self, map_len: Option<usize>) -> MapEntryActions {
         let path = &self.inner.borrow().path;
         let mut scope = MapScope::new(path, map_len);
         self.inner.borrow().hooks.on_map(&mut scope);
         scope.into_actions()
     }
 
-    fn on_struct(
-        &self,
-        struct_len: usize,
-        struct_name: &'static str,
-    ) -> scope::OnStructFieldActions {
+    fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> StructFieldActions {
         let path = &self.inner.borrow().path;
         let mut scope = StructScope::new(path, struct_len, struct_name);
         self.inner.borrow().hooks.on_struct(&mut scope);
@@ -79,7 +78,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         enum_name: &'static str,
         variant_name: &'static str,
         variant_index: u32,
-    ) -> (scope::OnVariantActions, scope::OnStructFieldActions) {
+    ) -> (VariantActions, StructFieldActions) {
         let path = &self.inner.borrow().path;
 
         let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
@@ -94,7 +93,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         (variant_scope.into_actions(), struct_scope.into_actions())
     }
 
-    fn on_map_key<S: Serializer>(&self, serializer: S, value: Value) -> scope::OnValueAction<S> {
+    fn on_map_key<S: Serializer>(&self, serializer: S, value: Value) -> ValueAction<S> {
         let path = &self.inner.borrow().path;
 
         let mut scope = MapKeyScope::new(path, serializer, value);
@@ -102,7 +101,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         scope.into_action()
     }
 
-    fn on_value<S: Serializer>(&self, serializer: S, value: Value) -> scope::OnValueAction<S> {
+    fn on_value<S: Serializer>(&self, serializer: S, value: Value) -> ValueAction<S> {
         let path = &self.inner.borrow().path;
 
         let mut scope = ValueScope::new(path, serializer, value);
@@ -118,7 +117,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         scope.into_result::<S>()
     }
 
-    fn on_seq(&self, len: Option<usize>) -> scope::OnSeqElementActions {
+    fn on_seq(&self, len: Option<usize>) -> SeqElementActions {
         let path = &self.inner.borrow().path;
 
         let mut scope = SeqScope::new(path, len);
@@ -131,7 +130,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         enum_name: &'static str,
         variant_name: &'static str,
         variant_index: u32,
-    ) -> scope::OnVariantActions {
+    ) -> VariantActions {
         let path = &self.inner.borrow().path;
 
         let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
@@ -147,7 +146,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         enum_name: &'static str,
         variant_name: &'static str,
         variant_index: u32,
-    ) -> scope::OnVariantActions {
+    ) -> VariantActions {
         let path = &self.inner.borrow().path;
 
         let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
@@ -158,7 +157,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         variant_scope.into_actions()
     }
 
-    fn on_tuple(&self, len: usize) -> scope::OnSeqElementActions {
+    fn on_tuple(&self, len: usize) -> SeqElementActions {
         let path = &self.inner.borrow().path;
 
         let mut tuple_scope = TupleScope::new(path, len);
@@ -171,7 +170,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         seq_scope.into_actions()
     }
 
-    fn on_tuple_struct(&self, name: &'static str, len: usize) -> scope::OnSeqElementActions {
+    fn on_tuple_struct(&self, name: &'static str, len: usize) -> SeqElementActions {
         let path = &self.inner.borrow().path;
 
         let mut tuple_scope = TupleScope::new(path, len);
@@ -192,7 +191,7 @@ impl<H: Hooks> wrapper::SerializerWrapperHooks for Context<'_, H> {
         variant_index: u32,
         variant_name: &'static str,
         len: usize,
-    ) -> (scope::OnVariantActions, scope::OnSeqElementActions) {
+    ) -> (VariantActions, SeqElementActions) {
         let path = &self.inner.borrow().path;
 
         let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);

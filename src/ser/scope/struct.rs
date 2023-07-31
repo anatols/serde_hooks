@@ -1,19 +1,9 @@
 use std::borrow::Cow;
 
-use smallvec::SmallVec;
-
-use crate::{Case, Path, StaticValue};
-
-pub(crate) enum StructFieldAction {
-    Retain(Cow<'static, str>),
-    Skip(Cow<'static, str>),
-    Rename(Cow<'static, str>, Cow<'static, str>),
-    ReplaceValue(Cow<'static, str>, StaticValue),
-    RenameAll(Case),
-}
-
-pub(crate) type OnStructFieldActions = SmallVec<[StructFieldAction; 8]>;
-
+use crate::{
+    ser::wrapper::{StructFieldAction, StructFieldActions},
+    Case, Path, StaticValue,
+};
 
 //TODO add support for flatten and serialize_as_map
 //TODO add rename_field_case
@@ -22,7 +12,7 @@ pub struct StructScope<'p> {
     path: &'p Path,
     struct_len: usize,
     struct_name: &'static str,
-    actions: OnStructFieldActions,
+    actions: StructFieldActions,
 }
 
 impl<'p> StructScope<'p> {
@@ -35,7 +25,7 @@ impl<'p> StructScope<'p> {
         }
     }
 
-    pub(crate) fn into_actions(self) -> OnStructFieldActions {
+    pub(crate) fn into_actions(self) -> StructFieldActions {
         self.actions
     }
 
