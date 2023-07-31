@@ -44,7 +44,7 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, 
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Context<'h, H: Hooks> {
     inner: Rc<RefCell<ContextInner<'h, H>>>,
 }
@@ -227,7 +227,6 @@ impl<'h, H: Hooks> Context<'h, H> {
     }
 }
 
-#[derive(Debug)]
 struct ContextInner<'h, H: Hooks> {
     path: Path,
     hooks: &'h H,

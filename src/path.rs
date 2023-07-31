@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 
 use crate::{StaticValue, Value};
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Path {
     segments: SmallVec<[PathSegment; 8]>,
 }
