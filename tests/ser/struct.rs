@@ -211,7 +211,7 @@ fn test_rename_all_fields() {
     impl ser::Hooks for Hooks {
         fn on_struct(&self, st: &mut ser::StructScope) {
             if st.path().segments().is_empty() {
-                st.rename_all_fields_case("PascalCase".into())
+                st.rename_all_fields_case("PascalCase")
                     .rename_field("BAR-BAZ", "bbz");
             }
         }
