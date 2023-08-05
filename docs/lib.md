@@ -10,11 +10,11 @@ For example, you can, *at runtime*:
 - Add new entries to maps.
 - Introspect serialized data structures.
 
-# Why do I need this crate?
+# "Why do I need this crate?"
 
 You likely don't.
 
-Seriously, in the vast majority of cases, what [`serde`] offers out of the box is enough, and more optimal to use. Before you consider using this crate, please check [serde.rs](https://serde.rs), including the [examples](https://serde.rs/examples.html) section. After that, consider changing your data model in a way so you can use bare `serde`. Only then, if none of the above helps, come back for the hooks.
+Seriously, in the vast majority of cases, what [`serde`] offers out of the box is enough, and more optimal to use. Before you consider using this crate, please check [serde.rs](https://serde.rs), including the [examples](https://serde.rs/examples.html) section. After that, consider changing your data model in a way that you can use bare `serde`. Only then, if none of the above helps, come back for the hooks.
 
 Some examples where having runtime control over serialization can be handy:
 
@@ -115,7 +115,7 @@ Concrete sequences are documented on each hook in [ser::Hooks].
 
 ## Passing data to hooks
 
-You might have noticed that each hook functions gets passed a reference to `self`. This is a reference to the value you pass to [ser::hook()]. You can use it to pass data into your hooks:
+You might have noticed that each hook function gets passed a reference to `self`. This is a reference to the value you pass to [ser::hook()]. You can use it to pass data into your hooks:
 
 ```rust
 use serde::Serialize;
@@ -157,7 +157,7 @@ let json = serde_json::to_string(&ser::hook(
 assert_eq!(json, r#"{"name":"Richie","salary":1000000.99}"#);
 ```
 
-Hooks will get an immutable reference to your hooks value. If you want to mutate some state, reach out for your favorite interior mutability construct.
+Hooks will get an immutable reference to your value. If you want to mutate some state, reach out for your favorite interior mutability construct.
 
 You can reuse the hooks value for multiple serializations. There are two special hooks that can help managing its state when reused: [on_start](ser::Hooks::on_start) (called before serialization begins) and [on_end](ser::Hooks::on_end) (called after it ends).
 
