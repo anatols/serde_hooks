@@ -115,7 +115,7 @@ Concrete sequences are documented on each hook in [ser::Hooks].
 
 ## Passing data to hooks
 
-You might have noticed that each hook functions gets passed a reference to `self`. This is a reference to the instance you pass to [ser::hook()]. You can use it to pass data into your hooks:
+You might have noticed that each hook functions gets passed a reference to `self`. This is a reference to the value you pass to [ser::hook()]. You can use it to pass data into your hooks:
 
 ```rust
 use serde::Serialize;
@@ -156,6 +156,10 @@ let json = serde_json::to_string(&ser::hook(
 )).unwrap();
 assert_eq!(json, r#"{"name":"Richie","salary":1000000.99}"#);
 ```
+
+Hooks will get an immutable reference to your hooks value. If you want to mutate some state, reach out for your favorite interior mutability construct.
+
+You can reuse the hooks value for multiple serializations. There are two special hooks that can help managing its state when reused: [on_start](ser::Hooks::on_start) (called before serialization begins) and [on_end](ser::Hooks::on_end) (called after it ends).
 
 ## Path
 
