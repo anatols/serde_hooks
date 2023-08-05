@@ -1,3 +1,5 @@
+#![doc = include_str!("../docs/lib.md")]
+
 pub mod ser;
 
 mod case;
