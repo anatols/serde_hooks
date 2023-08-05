@@ -219,11 +219,11 @@ impl<'h, H: Hooks> Context<'h, H> {
     }
 
     pub(super) fn start(&self) {
-        self.inner.borrow().hooks.start();
+        self.inner.borrow().hooks.on_start();
     }
 
     pub(super) fn end(&self) {
-        self.inner.borrow().hooks.end();
+        self.inner.borrow().hooks.on_end();
     }
 }
 

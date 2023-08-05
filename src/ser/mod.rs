@@ -15,9 +15,9 @@ pub use scope::{
 use context::SerializableWithContext;
 
 pub trait Hooks {
-    fn start(&self) {}
+    fn on_start(&self) {}
 
-    fn end(&self) {}
+    fn on_end(&self) {}
 
     #[allow(unused_variables)]
     fn on_error(&self, err: &mut ErrorScope) {}
