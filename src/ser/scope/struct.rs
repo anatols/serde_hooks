@@ -7,6 +7,7 @@ use crate::{
 
 //TODO add support for flatten and serialize_as_map
 //TODO add rename_field_case
+//TODO document errors
 
 pub struct StructScope {
     struct_len: usize,
@@ -27,32 +28,53 @@ impl StructScope {
         self.actions
     }
 
+    /// Returns the original number of fields in this struct.
+    ///
+    /// The returned value is not affected by any retain or skip actions.
     pub fn struct_len(&self) -> usize {
         self.struct_len
     }
 
+    /// Returns the name of the struct.
     pub fn struct_name(&self) -> &'static str {
         self.struct_name
     }
 
-    pub fn retain_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.actions.push(StructFieldAction::Retain(key.into()));
+    /// Skips a field during serialization.
+    ///
+    /// Runtime equivalent to `#[serde(skip)]` or `#[serde(skip_serializing)]`.
+    ///
+    /// Returns `self` to allow chaining calls.
+    pub fn skip_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
+        self.actions.push(StructFieldAction::Skip(key.into()));
         self
     }
 
-    pub fn skip_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.actions.push(StructFieldAction::Skip(key.into()));
+    /// Retains a field.
+    ///
+    /// Calling this method switches processing to a 'retain' mode, in which
+    /// all not retained fields are skipped. You can retain multiple fields by
+    /// calling this method multiple times.
+    ///
+    /// There is no equivalent in serde derive, but you can see this as a 'whitelist'
+    /// counterpart of `#[serde(skip)]`.
+    ///
+    /// Returns `self` to allow chaining calls.
+    pub fn retain_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
+        self.actions.push(StructFieldAction::Retain(key.into()));
         self
     }
 
     //TODO better docs - explain about static strings
     /// Rename a field.
     ///
-    /// The `key` refers to the original field key in the struct, even if [rename_all_fields_case](Self::rename_all_fields_case)
+    /// The `key` refers to the original field key in the struct, even if [`rename_all_fields_case`](Self::rename_all_fields_case)
     /// is called.
     ///
     /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
     /// `#[serde(rename_all=...)]`, you need to specify the field key as it will be *after* serde renaming.
+    ///
+    /// Returns `self` to allow chaining calls.
     pub fn rename_field(
         &mut self,
         key: impl Into<Cow<'static, str>>,
@@ -67,17 +89,23 @@ impl StructScope {
     ///
     /// If specified multiple times, the last case convention is used.
     ///
-    /// Calling [rename_field](Self::rename_field) on specific fields will override
+    /// Calling [`rename_field`](Self::rename_field) on specific fields will override
     /// this case convention.
     ///
     /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
-    /// `#[serde(rename_all=...)]`, those renames will be applied first. See [Case](crate::Case) for more information
+    /// `#[serde(rename_all=...)]`, those renames will be applied first. See [`Case`](crate::Case) for more information
     /// and caveats of case conversion.
+    ///
+    /// Returns `self` to allow chaining calls.
     pub fn rename_all_fields_case(&mut self, case: impl Into<Case>) -> &mut Self {
         self.actions.push(StructFieldAction::RenameAll(case.into()));
         self
     }
 
+    //TODO document, explain replacing non-trivial values
+    ///
+    ///
+    /// Returns `self` to allow chaining calls.
     pub fn replace_value(
         &mut self,
         key: impl Into<Cow<'static, str>>,
