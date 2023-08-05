@@ -1,17 +1,39 @@
-//TODO document
+//TODO explain caveats of case conversion in runtime: running after serde, detecting word boundaries
+/// Case convention for case-renaming actions.
 #[derive(Copy, Clone)]
 pub enum Case {
+    /// `lowercase`
     Lower,
+    /// `UPPERCASE`
     Upper,
+    /// `PascalCase`
     Pascal,
+    /// `camelCase`
     Camel,
+    /// `snake_case`
     Snake,
+    /// `SCREAMING_SNAKE_CASE`
     ScreamingSnake,
+    /// `kebab-case`
     Kebab,
+    /// `SCREAMING-KEBAB-CASE`
     ScreamingKebab,
 }
 
 impl From<&str> for Case {
+    /// Convert from a string literal to [`Case`].
+    ///
+    /// This function accepts the same case convention identifiers, as `#[serde rename_all=...]`:
+    /// `"lowercase"`,
+    /// `"UPPERCASE"`,
+    /// `"PascalCase"`,
+    /// `"camelCase"`,
+    /// `"snake_case"`,
+    /// `"SCREAMING_SNAKE_CASE"`,
+    /// `"kebab-case"`,
+    /// `"SCREAMING-KEBAB-CASE"`.
+    ///
+    /// Panics on unknown identifiers.
     fn from(value: &str) -> Self {
         match value {
             "lowercase" => Self::Lower,
