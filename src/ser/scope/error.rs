@@ -25,10 +25,6 @@ impl<'p> ErrorScope<'p> {
         }
     }
 
-    pub fn path(&self) -> &Path {
-        self.path
-    }
-
     pub fn error(&self) -> &HooksError {
         &self.error
     }

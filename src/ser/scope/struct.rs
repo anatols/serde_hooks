@@ -2,23 +2,21 @@ use std::borrow::Cow;
 
 use crate::{
     ser::wrapper::{StructFieldAction, StructFieldActions},
-    Case, Path, StaticValue,
+    Case, StaticValue,
 };
 
 //TODO add support for flatten and serialize_as_map
 //TODO add rename_field_case
 
-pub struct StructScope<'p> {
-    path: &'p Path,
+pub struct StructScope {
     struct_len: usize,
     struct_name: &'static str,
     actions: StructFieldActions,
 }
 
-impl<'p> StructScope<'p> {
-    pub(crate) fn new(path: &'p Path, struct_len: usize, struct_name: &'static str) -> Self {
+impl StructScope {
+    pub(crate) fn new(struct_len: usize, struct_name: &'static str) -> Self {
         Self {
-            path,
             struct_len,
             struct_name,
             actions: Default::default(),
@@ -27,10 +25,6 @@ impl<'p> StructScope<'p> {
 
     pub(crate) fn into_actions(self) -> StructFieldActions {
         self.actions
-    }
-
-    pub fn path(&self) -> &Path {
-        self.path
     }
 
     pub fn struct_len(&self) -> usize {

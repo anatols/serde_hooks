@@ -60,15 +60,15 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
 
     fn on_map(&self, map_len: Option<usize>) -> MapEntryActions {
         let path = &self.inner.borrow().path;
-        let mut scope = MapScope::new(path, map_len);
-        self.inner.borrow().hooks.on_map(&mut scope);
+        let mut scope = MapScope::new(map_len);
+        self.inner.borrow().hooks.on_map(path, &mut scope);
         scope.into_actions()
     }
 
     fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> StructFieldActions {
         let path = &self.inner.borrow().path;
-        let mut scope = StructScope::new(path, struct_len, struct_name);
-        self.inner.borrow().hooks.on_struct(&mut scope);
+        let mut scope = StructScope::new(struct_len, struct_name);
+        self.inner.borrow().hooks.on_struct(path, &mut scope);
         scope.into_actions()
     }
 
@@ -81,14 +81,14 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
     ) -> (VariantActions, StructFieldActions) {
         let path = &self.inner.borrow().path;
 
-        let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
-        let mut struct_scope = StructScope::new(path, struct_len, variant_name);
+        let mut variant_scope = EnumVariantScope::new(enum_name, variant_name, variant_index);
+        let mut struct_scope = StructScope::new(struct_len, variant_name);
 
         let hooks = self.inner.borrow().hooks;
 
-        hooks.on_enum_variant(&mut variant_scope);
-        hooks.on_struct(&mut struct_scope);
-        hooks.on_struct_variant(&mut variant_scope, &mut struct_scope);
+        hooks.on_enum_variant(path, &mut variant_scope);
+        hooks.on_struct(path, &mut struct_scope);
+        hooks.on_struct_variant(path, &mut variant_scope, &mut struct_scope);
 
         (variant_scope.into_actions(), struct_scope.into_actions())
     }
@@ -96,16 +96,16 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
     fn on_map_key<S: Serializer>(&self, serializer: S, value: Value) -> ValueAction<S> {
         let path = &self.inner.borrow().path;
 
-        let mut scope = MapKeyScope::new(path, serializer, value);
-        self.inner.borrow().hooks.on_map_key(&mut scope);
+        let mut scope = MapKeyScope::new(serializer, value);
+        self.inner.borrow().hooks.on_map_key(path, &mut scope);
         scope.into_action()
     }
 
     fn on_value<S: Serializer>(&self, serializer: S, value: Value) -> ValueAction<S> {
         let path = &self.inner.borrow().path;
 
-        let mut scope = ValueScope::new(path, serializer, value);
-        self.inner.borrow().hooks.on_value(&mut scope);
+        let mut scope = ValueScope::new(serializer, value);
+        self.inner.borrow().hooks.on_value(path, &mut scope);
         scope.into_action()
     }
 
@@ -113,15 +113,15 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         let path = &self.inner.borrow().path;
 
         let mut scope = ErrorScope::new(path, error);
-        self.inner.borrow().hooks.on_error(&mut scope);
+        self.inner.borrow().hooks.on_error(path, &mut scope);
         scope.into_result::<S>()
     }
 
     fn on_seq(&self, len: Option<usize>) -> SeqElementActions {
         let path = &self.inner.borrow().path;
 
-        let mut scope = SeqScope::new(path, len);
-        self.inner.borrow().hooks.on_seq(&mut scope);
+        let mut scope = SeqScope::new(len);
+        self.inner.borrow().hooks.on_seq(path, &mut scope);
         scope.into_actions()
     }
 
@@ -133,10 +133,10 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
     ) -> VariantActions {
         let path = &self.inner.borrow().path;
 
-        let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
+        let mut variant_scope = EnumVariantScope::new(enum_name, variant_name, variant_index);
 
         let hooks = self.inner.borrow().hooks;
-        hooks.on_enum_variant(&mut variant_scope);
+        hooks.on_enum_variant(path, &mut variant_scope);
 
         variant_scope.into_actions()
     }
@@ -149,10 +149,10 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
     ) -> VariantActions {
         let path = &self.inner.borrow().path;
 
-        let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
+        let mut variant_scope = EnumVariantScope::new(enum_name, variant_name, variant_index);
 
         let hooks = self.inner.borrow().hooks;
-        hooks.on_enum_variant(&mut variant_scope);
+        hooks.on_enum_variant(path, &mut variant_scope);
 
         variant_scope.into_actions()
     }
@@ -160,12 +160,12 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
     fn on_tuple(&self, len: usize) -> SeqElementActions {
         let path = &self.inner.borrow().path;
 
-        let mut tuple_scope = TupleScope::new(path, len);
-        let mut seq_scope = SeqScope::new(path, Some(len));
+        let mut tuple_scope = TupleScope::new(len);
+        let mut seq_scope = SeqScope::new(Some(len));
 
         let hooks = self.inner.borrow().hooks;
 
-        hooks.on_tuple(&mut tuple_scope, &mut seq_scope);
+        hooks.on_tuple(path, &mut tuple_scope, &mut seq_scope);
 
         seq_scope.into_actions()
     }
@@ -173,14 +173,14 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
     fn on_tuple_struct(&self, name: &'static str, len: usize) -> SeqElementActions {
         let path = &self.inner.borrow().path;
 
-        let mut tuple_scope = TupleScope::new(path, len);
-        let mut tuple_struct_scope = TupleStructScope::new(path, name, len);
-        let mut seq_scope = SeqScope::new(path, Some(len));
+        let mut tuple_scope = TupleScope::new(len);
+        let mut tuple_struct_scope = TupleStructScope::new(name, len);
+        let mut seq_scope = SeqScope::new(Some(len));
 
         let hooks = self.inner.borrow().hooks;
 
-        hooks.on_tuple(&mut tuple_scope, &mut seq_scope);
-        hooks.on_tuple_struct(&mut tuple_struct_scope, &mut seq_scope);
+        hooks.on_tuple(path, &mut tuple_scope, &mut seq_scope);
+        hooks.on_tuple_struct(path, &mut tuple_struct_scope, &mut seq_scope);
 
         seq_scope.into_actions()
     }
@@ -194,15 +194,15 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
     ) -> (VariantActions, SeqElementActions) {
         let path = &self.inner.borrow().path;
 
-        let mut variant_scope = EnumVariantScope::new(path, enum_name, variant_name, variant_index);
-        let mut tuple_scope = TupleScope::new(path, len);
-        let mut seq_scope = SeqScope::new(path, Some(len));
+        let mut variant_scope = EnumVariantScope::new(enum_name, variant_name, variant_index);
+        let mut tuple_scope = TupleScope::new(len);
+        let mut seq_scope = SeqScope::new(Some(len));
 
         let hooks = self.inner.borrow().hooks;
 
-        hooks.on_enum_variant(&mut variant_scope);
-        hooks.on_tuple(&mut tuple_scope, &mut seq_scope);
-        hooks.on_tuple_variant(&mut variant_scope, &mut tuple_scope, &mut seq_scope);
+        hooks.on_enum_variant(path, &mut variant_scope);
+        hooks.on_tuple(path, &mut tuple_scope, &mut seq_scope);
+        hooks.on_tuple_variant(path, &mut variant_scope, &mut tuple_scope, &mut seq_scope);
 
         (variant_scope.into_actions(), seq_scope.into_actions())
     }

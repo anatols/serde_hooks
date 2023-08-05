@@ -14,4 +14,4 @@ pub use tuple::{TupleScope, TupleStructScope};
 pub use value::ValueScope;
 pub use variant::EnumVariantScope;
 
-pub type MapKeyScope<'p, 'v, S> = ValueScope<'p, 'v, S>;
+pub type MapKeyScope<'v, S> = ValueScope<'v, S>;

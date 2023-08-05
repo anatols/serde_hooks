@@ -8,7 +8,7 @@ use std::{
 use indoc::indoc;
 use serde::Serialize;
 
-use serde_hooks::ser;
+use serde_hooks::{ser, Path};
 
 #[derive(Serialize)]
 struct UnitStruct;
@@ -143,8 +143,8 @@ fn test_values() {
         fields_to_expect: RefCell<HashSet<String>>,
     }
     impl ser::Hooks for Hooks {
-        fn on_value<S: serde::Serializer>(&self, value: &mut ser::ValueScope<S>) {
-            let path = value.path().to_string();
+        fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
+            let path = path.to_string();
             self.fields_to_expect.borrow_mut().remove(&path);
             use serde_hooks::Value;
 
@@ -273,9 +273,9 @@ fn test_replace_in_struct() {
 
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_value<S: serde::Serializer>(&self, value: &mut ser::ValueScope<S>) {
-            if !value.path().segments().is_empty() {
-                value.replace(&format!("R {}", value.path().to_string()));
+        fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
+            if !path.segments().is_empty() {
+                value.replace(&format!("R {}", path.to_string()));
             }
         }
     }
@@ -328,9 +328,9 @@ fn test_replace_in_struct() {
 fn test_replace_in_seq() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_value<S: serde::Serializer>(&self, value: &mut ser::ValueScope<S>) {
-            if !value.path().segments().is_empty() {
-                value.replace(&format!("R {}", value.path().to_string()));
+        fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
+            if !path.segments().is_empty() {
+                value.replace(&format!("R {}", path.to_string()));
             }
         }
     }

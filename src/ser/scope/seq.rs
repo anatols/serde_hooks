@@ -1,19 +1,17 @@
 use crate::{
     ser::wrapper::{SeqElementAction, SeqElementActions},
-    Path, StaticValue,
+    StaticValue,
 };
 
 //TODO add support for insert before, insert after, push back
-pub struct SeqScope<'p> {
-    path: &'p Path,
+pub struct SeqScope {
     seq_len: Option<usize>,
     actions: SeqElementActions,
 }
 
-impl<'p> SeqScope<'p> {
-    pub(crate) fn new(path: &'p Path, seq_len: Option<usize>) -> Self {
+impl SeqScope {
+    pub(crate) fn new(seq_len: Option<usize>) -> Self {
         Self {
-            path,
             seq_len,
             actions: Default::default(),
         }
@@ -21,10 +19,6 @@ impl<'p> SeqScope<'p> {
 
     pub(crate) fn into_actions(self) -> SeqElementActions {
         self.actions
-    }
-
-    pub fn path(&self) -> &Path {
-        self.path
     }
 
     pub fn seq_len(&self) -> Option<usize> {

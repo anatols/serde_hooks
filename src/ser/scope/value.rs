@@ -1,17 +1,15 @@
 use serde::{Serialize, Serializer};
 
-use crate::{ser::wrapper::ValueAction, Path, Value};
+use crate::{ser::wrapper::ValueAction, Value};
 
-pub struct ValueScope<'p, 'v, S: Serializer> {
-    path: &'p Path,
+pub struct ValueScope<'v, S: Serializer> {
     action: Option<ValueAction<S>>,
     value: Value<'v>,
 }
 
-impl<'p, 'v, S: Serializer> ValueScope<'p, 'v, S> {
-    pub(crate) fn new(path: &'p Path, serializer: S, value: Value<'v>) -> Self {
+impl<'v, S: Serializer> ValueScope<'v, S> {
+    pub(crate) fn new(serializer: S, value: Value<'v>) -> Self {
         Self {
-            path,
             action: Some(ValueAction::ContinueSerialization(serializer)),
             value,
         }
@@ -19,10 +17,6 @@ impl<'p, 'v, S: Serializer> ValueScope<'p, 'v, S> {
 
     pub(crate) fn into_action(self) -> ValueAction<S> {
         self.action.unwrap()
-    }
-
-    pub fn path(&self) -> &Path {
-        self.path
     }
 
     pub fn value(&self) -> &Value {

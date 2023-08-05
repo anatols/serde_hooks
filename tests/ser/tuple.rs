@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashSet};
 
 use serde::Serialize;
-use serde_hooks::ser;
+use serde_hooks::{ser, Path};
 
 #[test]
 fn test_tuple_traversing() {
@@ -35,11 +35,10 @@ fn test_tuple_traversing() {
         tuple_structs_to_expect: RefCell<HashSet<&'static str>>,
     }
     impl ser::Hooks for Hooks {
-        fn on_tuple(&self, tpl: &mut ser::TupleScope, seq: &mut ser::SeqScope) {
-            let path = tpl.path().to_string();
+        fn on_tuple(&self, path: &Path, tpl: &mut ser::TupleScope, seq: &mut ser::SeqScope) {
+            let path = path.to_string();
             self.tuples_to_expect.borrow_mut().remove(path.as_str());
 
-            assert_eq!(tpl.path().to_string(), seq.path().to_string());
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
             match path.as_str() {
@@ -67,17 +66,16 @@ fn test_tuple_traversing() {
 
         fn on_tuple_variant(
             &self,
+            path: &Path,
             ev: &mut ser::EnumVariantScope,
             tpl: &mut ser::TupleScope,
             seq: &mut ser::SeqScope,
         ) {
-            let path = tpl.path().to_string();
+            let path = path.to_string();
             self.tuple_variants_to_expect
                 .borrow_mut()
                 .remove(path.as_str());
 
-            assert_eq!(ev.path().to_string(), tpl.path().to_string());
-            assert_eq!(tpl.path().to_string(), seq.path().to_string());
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
             match path.as_str() {
@@ -91,13 +89,17 @@ fn test_tuple_traversing() {
             }
         }
 
-        fn on_tuple_struct(&self, tpl: &mut ser::TupleStructScope, seq: &mut ser::SeqScope) {
-            let path = tpl.path().to_string();
+        fn on_tuple_struct(
+            &self,
+            path: &Path,
+            tpl: &mut ser::TupleStructScope,
+            seq: &mut ser::SeqScope,
+        ) {
+            let path = path.to_string();
             self.tuple_structs_to_expect
                 .borrow_mut()
                 .remove(path.as_str());
 
-            assert_eq!(tpl.path().to_string(), seq.path().to_string());
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
             match path.as_str() {

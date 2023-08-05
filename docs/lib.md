@@ -42,13 +42,13 @@ The API design is in many cases dictated by the quite rigid internal structure o
 It all starts with the [ser::Hooks] trait. This trait defines a bunch of callback functions (hooks) that have empty default implementations. You implement this trait for some type of yours (it can even be a unit struct) and overload the hooks you want to receive (but not the others):
 
 ```rust
-use serde_hooks::ser;
+use serde_hooks::{ser, Path};
 
 struct MyHooks;
 
 impl ser::Hooks for MyHooks {
     // This hook is called on every serialized struct.
-    fn on_struct(&self, st: &mut ser::StructScope) {
+    fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
         // Here you can modify the struct by calling methods on `st`
     }
 }
@@ -75,7 +75,7 @@ For example, [`ser::StructScope`] represents a serialized `struct`. You can quer
 
 ```rust
 use serde::Serialize;
-use serde_hooks::ser;
+use serde_hooks::{ser, Path};
 
 #[derive(Serialize)]
 struct Employee {
@@ -86,7 +86,7 @@ struct Employee {
 struct EmployeeHooks;
 
 impl ser::Hooks for EmployeeHooks {
-    fn on_struct(&self, st: &mut ser::StructScope) {
+    fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
         assert_eq!(st.struct_name(), "Employee");
         assert_eq!(st.struct_len(), 2);
         st.skip_field("salary");
@@ -119,7 +119,7 @@ You might have noticed that each hook functions gets passed a reference to `self
 
 ```rust
 use serde::Serialize;
-use serde_hooks::ser;
+use serde_hooks::{ser, Path};
 
 #[derive(Serialize)]
 struct Employee {
@@ -132,7 +132,7 @@ struct EmployeeHooks {
 }
 
 impl ser::Hooks for EmployeeHooks {
-    fn on_struct(&self, st: &mut ser::StructScope) {
+    fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
         if !self.boss_is_asking {
             st.skip_field("salary");
         }

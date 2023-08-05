@@ -4,7 +4,7 @@ use std::{
 };
 
 use serde::Serialize;
-use serde_hooks::{ser, Case, StaticValue};
+use serde_hooks::{ser, Case, Path, StaticValue};
 
 #[derive(Serialize)]
 enum Enum {
@@ -57,8 +57,8 @@ fn test_struct_traversing() {
         fields_to_expect: RefCell<HashSet<String>>,
     }
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
-            let path = st.path().to_string();
+        fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
+            let path = path.to_string();
             self.fields_to_expect.borrow_mut().remove(&path);
 
             match path.as_str() {
@@ -78,8 +78,13 @@ fn test_struct_traversing() {
             }
         }
 
-        fn on_struct_variant(&self, ev: &mut ser::EnumVariantScope, st: &mut ser::StructScope) {
-            let path = st.path().to_string();
+        fn on_struct_variant(
+            &self,
+            path: &Path,
+            ev: &mut ser::EnumVariantScope,
+            st: &mut ser::StructScope,
+        ) {
+            let path = path.to_string();
             self.fields_to_expect.borrow_mut().remove(&path);
 
             match path.as_str() {
@@ -115,11 +120,16 @@ fn test_struct_traversing() {
 fn test_skip_field() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
+        fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
             st.skip_field("foo").skip_field("baz");
         }
 
-        fn on_struct_variant(&self, _ev: &mut ser::EnumVariantScope, st: &mut ser::StructScope) {
+        fn on_struct_variant(
+            &self,
+            _path: &Path,
+            _ev: &mut ser::EnumVariantScope,
+            st: &mut ser::StructScope,
+        ) {
             st.skip_field("foo").skip_field("baz");
         }
     }
@@ -135,7 +145,7 @@ fn test_skip_field() {
 fn test_retain_field() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
+        fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
             st.retain_field("foo").retain_field("bar");
         }
     }
@@ -148,13 +158,18 @@ fn test_retain_field() {
 fn test_retain_field_in_struct_variant() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
-            if st.path().segments().is_empty() {
+        fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
+            if path.segments().is_empty() {
                 st.retain_field("e");
             }
         }
 
-        fn on_struct_variant(&self, _ev: &mut ser::EnumVariantScope, st: &mut ser::StructScope) {
+        fn on_struct_variant(
+            &self,
+            _path: &Path,
+            _ev: &mut ser::EnumVariantScope,
+            st: &mut ser::StructScope,
+        ) {
             st.retain_field("foo").retain_field("bar");
         }
     }
@@ -170,8 +185,8 @@ fn test_retain_field_in_struct_variant() {
 fn test_rename_field() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
-            if st.path().segments().is_empty() {
+        fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
+            if path.segments().is_empty() {
                 st.rename_field("foo", "not_foo")
                     .rename_field("bar", format!("bar_{}", 42))
                     .rename_field("baz", "baz2")
@@ -179,7 +194,12 @@ fn test_rename_field() {
             }
         }
 
-        fn on_struct_variant(&self, _ev: &mut ser::EnumVariantScope, st: &mut ser::StructScope) {
+        fn on_struct_variant(
+            &self,
+            _path: &Path,
+            _ev: &mut ser::EnumVariantScope,
+            st: &mut ser::StructScope,
+        ) {
             st.rename_field("foo", "not_foo_either")
                 .rename_field("bar", format!("bar_{}", 21))
                 .rename_field("baz", "baz4")
@@ -209,14 +229,19 @@ fn test_rename_all_fields() {
 
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
-            if st.path().segments().is_empty() {
+        fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
+            if path.segments().is_empty() {
                 st.rename_all_fields_case("PascalCase")
                     .rename_field("BAR-BAZ", "bbz");
             }
         }
 
-        fn on_struct_variant(&self, _ev: &mut ser::EnumVariantScope, st: &mut ser::StructScope) {
+        fn on_struct_variant(
+            &self,
+            _path: &Path,
+            _ev: &mut ser::EnumVariantScope,
+            st: &mut ser::StructScope,
+        ) {
             st.rename_all_fields_case(Case::ScreamingSnake);
         }
     }
@@ -240,13 +265,18 @@ fn test_rename_all_fields() {
 fn test_replace_value() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
-            if st.path().segments().is_empty() {
+        fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
+            if path.segments().is_empty() {
                 st.replace_value("baz", -15i16);
             }
         }
 
-        fn on_struct_variant(&self, _ev: &mut ser::EnumVariantScope, st: &mut ser::StructScope) {
+        fn on_struct_variant(
+            &self,
+            _path: &Path,
+            _ev: &mut ser::EnumVariantScope,
+            st: &mut ser::StructScope,
+        ) {
             st.replace_value("baz", 'x');
         }
     }
@@ -259,7 +289,7 @@ fn test_replace_value() {
 fn test_struct_replace_value_unserializable() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
+        fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
             st.replace_value("baz", StaticValue::NewtypeStruct("STRUCT"));
         }
     }
@@ -272,7 +302,12 @@ fn test_struct_replace_value_unserializable() {
 fn test_struct_variant_replace_value_unserializable() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_struct_variant(&self, _ev: &mut ser::EnumVariantScope, st: &mut ser::StructScope) {
+        fn on_struct_variant(
+            &self,
+            _path: &Path,
+            _ev: &mut ser::EnumVariantScope,
+            st: &mut ser::StructScope,
+        ) {
             st.replace_value("baz", StaticValue::NewtypeStruct("STRUCT"));
         }
     }
@@ -287,14 +322,14 @@ fn test_error() {
         on_error_called: Cell<bool>,
     }
     impl ser::Hooks for Hooks {
-        fn on_struct(&self, st: &mut ser::StructScope) {
+        fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
             //TODO test other functions
             st.retain_field("invalid");
         }
 
-        fn on_error(&self, err: &mut ser::ErrorScope) {
+        fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
             //TODO use mock to ensure this is called
-            assert_eq!(err.path().to_string(), "");
+            assert_eq!(path.to_string(), "");
             assert_eq!(
                 *err.error(),
                 ser::HooksError::FieldNotFound("invalid".into())

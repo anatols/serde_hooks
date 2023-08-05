@@ -1,17 +1,10 @@
-use crate::Path;
-
-pub struct TupleScope<'p> {
-    path: &'p Path,
+pub struct TupleScope {
     tuple_len: usize,
 }
 
-impl<'p> TupleScope<'p> {
-    pub(crate) fn new(path: &'p Path, tuple_len: usize) -> Self {
-        Self { path, tuple_len }
-    }
-
-    pub fn path(&self) -> &Path {
-        self.path
+impl TupleScope {
+    pub(crate) fn new(tuple_len: usize) -> Self {
+        Self { tuple_len }
     }
 
     pub fn tuple_len(&self) -> usize {
@@ -19,23 +12,17 @@ impl<'p> TupleScope<'p> {
     }
 }
 
-pub struct TupleStructScope<'p> {
-    path: &'p Path,
+pub struct TupleStructScope {
     struct_name: &'static str,
     tuple_len: usize,
 }
 
-impl<'p> TupleStructScope<'p> {
-    pub(crate) fn new(path: &'p Path, struct_name: &'static str, tuple_len: usize) -> Self {
+impl TupleStructScope {
+    pub(crate) fn new(struct_name: &'static str, tuple_len: usize) -> Self {
         Self {
-            path,
             struct_name,
             tuple_len,
         }
-    }
-
-    pub fn path(&self) -> &Path {
-        self.path
     }
 
     pub fn struct_name(&self) -> &'static str {

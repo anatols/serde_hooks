@@ -14,48 +14,50 @@ pub use scope::{
 
 use context::SerializableWithContext;
 
+use crate::Path;
+
 pub trait Hooks {
     fn on_start(&self) {}
 
     fn on_end(&self) {}
 
     #[allow(unused_variables)]
-    fn on_error(&self, err: &mut ErrorScope) {}
+    fn on_error(&self, path: &Path, err: &mut ErrorScope) {}
 
     #[allow(unused_variables)]
-    fn on_map(&self, map: &mut MapScope) {}
+    fn on_map(&self, path: &Path, map: &mut MapScope) {}
 
     #[allow(unused_variables)]
-    fn on_map_key<S: Serializer>(&self, map_key: &mut MapKeyScope<S>) {}
+    fn on_map_key<S: Serializer>(&self, path: &Path, map_key: &mut MapKeyScope<S>) {}
 
     #[allow(unused_variables)]
-    fn on_struct(&self, st: &mut StructScope) {}
+    fn on_struct(&self, path: &Path, st: &mut StructScope) {}
 
     #[allow(unused_variables)]
-    fn on_enum_variant(&self, ev: &mut EnumVariantScope) {}
+    fn on_enum_variant(&self, path: &Path, ev: &mut EnumVariantScope) {}
 
     #[allow(unused_variables)]
-    fn on_struct_variant(&self, ev: &mut EnumVariantScope, st: &mut StructScope) {}
+    fn on_struct_variant(&self, path: &Path, ev: &mut EnumVariantScope, st: &mut StructScope) {}
 
     #[allow(unused_variables)]
-    fn on_seq(&self, seq: &mut SeqScope) {}
+    fn on_seq(&self, path: &Path, seq: &mut SeqScope) {}
 
     #[allow(unused_variables)]
-    fn on_value<S: Serializer>(&self, value: &mut ValueScope<S>) {}
-
-    /// Specifying any actions that may change the number of elements in the
-    /// sequence (e.g. retaining or skipping elements) will force this tuple to be
-    /// serialized as a sequence. Depending on the serializer you use, this might be
-    /// totally unsupported or lead to unexpected serialization results.
-    #[allow(unused_variables)]
-    fn on_tuple(&self, tpl: &mut TupleScope, seq: &mut SeqScope) {}
+    fn on_value<S: Serializer>(&self, path: &Path, value: &mut ValueScope<S>) {}
 
     /// Specifying any actions that may change the number of elements in the
     /// sequence (e.g. retaining or skipping elements) will force this tuple to be
     /// serialized as a sequence. Depending on the serializer you use, this might be
     /// totally unsupported or lead to unexpected serialization results.
     #[allow(unused_variables)]
-    fn on_tuple_struct(&self, tpl: &mut TupleStructScope, seq: &mut SeqScope) {}
+    fn on_tuple(&self, path: &Path, tpl: &mut TupleScope, seq: &mut SeqScope) {}
+
+    /// Specifying any actions that may change the number of elements in the
+    /// sequence (e.g. retaining or skipping elements) will force this tuple to be
+    /// serialized as a sequence. Depending on the serializer you use, this might be
+    /// totally unsupported or lead to unexpected serialization results.
+    #[allow(unused_variables)]
+    fn on_tuple_struct(&self, path: &Path, tpl: &mut TupleStructScope, seq: &mut SeqScope) {}
 
     /// Specifying any actions that may change the number of elements in the
     /// sequence (e.g. retaining or skipping elements) will force this tuple to be
@@ -64,6 +66,7 @@ pub trait Hooks {
     #[allow(unused_variables)]
     fn on_tuple_variant(
         &self,
+        path: &Path,
         ev: &mut EnumVariantScope,
         tpl: &mut TupleScope,
         seq: &mut SeqScope,
@@ -101,7 +104,7 @@ pub enum HooksError {
 /// # Example:
 /// ```
 /// use serde::Serialize;
-/// use serde_hooks::ser;
+/// use serde_hooks::{ser, Path};
 ///
 /// #[derive(Serialize)]
 /// struct User {
@@ -115,7 +118,7 @@ pub enum HooksError {
 ///
 /// impl ser::Hooks for UserHooks {
 ///     // This hook is called on every serialized struct.
-///     fn on_struct(&self, st: &mut ser::StructScope) {
+///     fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
 ///         // This is similar to #[serde(rename_all="SCREAMING_SNAKE_CASE")].
 ///         st.rename_all_fields_case("SCREAMING_SNAKE_CASE");
 ///

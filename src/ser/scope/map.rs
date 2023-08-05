@@ -3,21 +3,19 @@ use std::{borrow::Cow, fmt::Display};
 use crate::{
     path::PathMapKey,
     ser::wrapper::{MapEntryAction, MapEntryActions},
-    Path, StaticValue,
+    StaticValue,
 };
 
 //TODO add support for rename_key_case and rename_all_keys_case
 //TODO add support for add_entry_before, add_entry_after, push_entry
-pub struct MapScope<'p> {
-    path: &'p Path,
+pub struct MapScope {
     map_len: Option<usize>,
     actions: MapEntryActions,
 }
 
-impl<'p> MapScope<'p> {
-    pub(crate) fn new(path: &'p Path, map_len: Option<usize>) -> Self {
+impl MapScope {
+    pub(crate) fn new(map_len: Option<usize>) -> Self {
         Self {
-            path,
             map_len,
             actions: Default::default(),
         }
@@ -25,10 +23,6 @@ impl<'p> MapScope<'p> {
 
     pub(crate) fn into_actions(self) -> MapEntryActions {
         self.actions
-    }
-
-    pub fn path(&self) -> &Path {
-        self.path
     }
 
     pub fn map_len(&self) -> Option<usize> {

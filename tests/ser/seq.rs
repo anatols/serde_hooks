@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashSet};
 
 use serde::Serialize;
-use serde_hooks::{ser, StaticValue};
+use serde_hooks::{ser, Path, StaticValue};
 
 #[test]
 fn test_seq_traversing() {
@@ -20,8 +20,8 @@ fn test_seq_traversing() {
         fields_to_expect: RefCell<HashSet<String>>,
     }
     impl ser::Hooks for Hooks {
-        fn on_seq(&self, seq: &mut ser::SeqScope) {
-            let path = seq.path().to_string();
+        fn on_seq(&self, path: &Path, seq: &mut ser::SeqScope) {
+            let path = path.to_string();
             self.fields_to_expect.borrow_mut().remove(&path);
 
             match path.as_str() {
@@ -62,12 +62,12 @@ fn test_seq_traversing() {
 fn test_seq_skip_element() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_seq(&self, seq: &mut ser::SeqScope) {
+        fn on_seq(&self, _path: &Path, seq: &mut ser::SeqScope) {
             seq.skip_element(1).skip_element(12345);
         }
 
-        fn on_error(&self, err: &mut ser::ErrorScope) {
-            assert_eq!(err.path().to_string(), "");
+        fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
+            assert_eq!(path.to_string(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();
         }
@@ -81,14 +81,14 @@ fn test_seq_skip_element() {
 fn test_seq_retain_element() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_seq(&self, seq: &mut ser::SeqScope) {
+        fn on_seq(&self, _path: &Path, seq: &mut ser::SeqScope) {
             seq.retain_element(1)
                 .retain_element(2)
                 .retain_element(12345);
         }
 
-        fn on_error(&self, err: &mut ser::ErrorScope) {
-            assert_eq!(err.path().to_string(), "");
+        fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
+            assert_eq!(path.to_string(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();
         }
@@ -102,14 +102,14 @@ fn test_seq_retain_element() {
 fn test_seq_replace_value() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_seq(&self, seq: &mut ser::SeqScope) {
+        fn on_seq(&self, _path: &Path, seq: &mut ser::SeqScope) {
             seq.replace_value(1, -10i32)
                 .replace_value(2, 'a')
                 .replace_value(12345, "error");
         }
 
-        fn on_error(&self, err: &mut ser::ErrorScope) {
-            assert_eq!(err.path().to_string(), "");
+        fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
+            assert_eq!(path.to_string(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();
         }
@@ -123,7 +123,7 @@ fn test_seq_replace_value() {
 fn test_seq_replace_value_unserializable() {
     struct Hooks;
     impl ser::Hooks for Hooks {
-        fn on_seq(&self, seq: &mut ser::SeqScope) {
+        fn on_seq(&self, _path: &Path, seq: &mut ser::SeqScope) {
             seq.replace_value(1, StaticValue::NewtypeStruct("STRUCT"));
         }
     }
