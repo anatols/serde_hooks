@@ -110,7 +110,7 @@ pub(crate) enum VariantAction {
 pub(crate) type VariantActions = SmallVec<[VariantAction; 8]>;
 
 #[derive(Copy, Clone)]
-pub enum SerializableKind {
+pub(crate) enum SerializableKind {
     Value,
     MapKey,
 }

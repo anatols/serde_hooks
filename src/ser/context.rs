@@ -14,7 +14,7 @@ use crate::path::{Path, PathSegment};
 use crate::ser::{Hooks, HooksError};
 use crate::Value;
 
-pub struct SerializableWithContext<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
+pub(crate) struct SerializableWithContext<'s, 'h, T: Serialize + ?Sized, H: Hooks> {
     serializable: &'s T,
     context: Context<'h, H>,
 }
@@ -45,7 +45,7 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, 
 }
 
 #[derive(Clone)]
-pub struct Context<'h, H: Hooks> {
+pub(crate) struct Context<'h, H: Hooks> {
     inner: Rc<RefCell<ContextInner<'h, H>>>,
 }
 
