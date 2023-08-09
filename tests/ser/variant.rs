@@ -49,12 +49,12 @@ fn test_variant_traversing() {
     }
     impl ser::Hooks for Hooks {
         fn on_enum_variant(&self, path: &Path, ev: &mut ser::EnumVariantScope) {
-            let path = path.to_string();
-            assert!(self.variants_to_expect.borrow_mut().remove(path.as_str()));
+            let path = path.borrow_str();
+            assert!(self.variants_to_expect.borrow_mut().remove(&*path));
 
             assert_eq!(ev.enum_name(), "Enum");
 
-            match path.as_str() {
+            match path.as_ref() {
                 "unit_variant" => {
                     assert_eq!(ev.variant_name(), "UnitVariant");
                     assert_eq!(ev.variant_index(), 0);
@@ -76,10 +76,10 @@ fn test_variant_traversing() {
         }
 
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
-            let path = path.to_string();
-            self.structs_to_expect.borrow_mut().remove(path.as_str());
+            let path = path.borrow_str();
+            self.structs_to_expect.borrow_mut().remove(&*path);
 
-            match path.as_str() {
+            match path.as_ref() {
                 "" => {}
                 "struct_variant" => {
                     assert_eq!(st.struct_name(), "StructVariant");
@@ -95,12 +95,10 @@ fn test_variant_traversing() {
             ev: &mut ser::EnumVariantScope,
             _st: &mut ser::StructScope,
         ) {
-            let path = path.to_string();
-            self.structs_variants_to_expect
-                .borrow_mut()
-                .remove(path.as_str());
+            let path = path.borrow_str();
+            self.structs_variants_to_expect.borrow_mut().remove(&*path);
 
-            match path.as_str() {
+            match path.as_ref() {
                 "struct_variant" => {
                     assert_eq!(ev.enum_name(), "Enum");
                     assert_eq!(ev.variant_name(), "StructVariant");
@@ -111,12 +109,12 @@ fn test_variant_traversing() {
         }
 
         fn on_tuple(&self, path: &Path, tpl: &mut ser::TupleScope, seq: &mut ser::SeqScope) {
-            let path = path.to_string();
-            self.tuples_to_expect.borrow_mut().remove(path.as_str());
+            let path = path.borrow_str();
+            self.tuples_to_expect.borrow_mut().remove(&*path);
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
-            match path.as_str() {
+            match path.as_ref() {
                 "tuple_variant" => {
                     assert_eq!(tpl.tuple_len(), 2);
                 }
@@ -131,12 +129,10 @@ fn test_variant_traversing() {
             _tpl: &mut ser::TupleScope,
             _seq: &mut ser::SeqScope,
         ) {
-            let path = path.to_string();
-            self.tuple_variants_to_expect
-                .borrow_mut()
-                .remove(path.as_str());
+            let path = path.borrow_str();
+            self.tuple_variants_to_expect.borrow_mut().remove(&*path);
 
-            match path.as_str() {
+            match path.as_ref() {
                 "tuple_variant" => {
                     assert_eq!(ev.enum_name(), "Enum");
                     assert_eq!(ev.variant_name(), "TupleVariant");
@@ -196,8 +192,8 @@ fn test_enum_rename() {
 
     impl ser::Hooks for Hooks {
         fn on_enum_variant(&self, path: &Path, ev: &mut ser::EnumVariantScope) {
-            let path = path.to_string();
-            match path.as_str() {
+            let path = path.borrow_str();
+            match path.as_ref() {
                 "unit_variant" => {
                     ev.rename_enum("new_enum_name");
                 }
@@ -257,8 +253,8 @@ fn test_variant_index_change() {
 
     impl ser::Hooks for Hooks {
         fn on_enum_variant(&self, path: &Path, ev: &mut ser::EnumVariantScope) {
-            let path = path.to_string();
-            if path == "unit_variant" {
+            let path = path.borrow_str();
+            if &*path == "unit_variant" {
                 ev.change_variant_index(10);
             }
         }
@@ -300,8 +296,8 @@ fn test_variant_rename() {
 
     impl ser::Hooks for Hooks {
         fn on_enum_variant(&self, path: &Path, ev: &mut ser::EnumVariantScope) {
-            let path = path.to_string();
-            match path.as_str() {
+            let path = path.borrow_str();
+            match path.as_ref() {
                 "unit_variant" => {
                     ev.rename_variant("new_variant_name");
                 }

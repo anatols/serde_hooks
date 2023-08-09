@@ -212,7 +212,7 @@ impl<'h, H: Hooks> Context<'h, H> {
     pub(super) fn new(hooks: &'h H) -> Self {
         Self {
             inner: Rc::new(RefCell::new(ContextInner {
-                path: Default::default(),
+                path: Path::new(),
                 hooks,
             })),
         }

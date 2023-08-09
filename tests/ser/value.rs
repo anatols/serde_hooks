@@ -144,13 +144,13 @@ fn test_values() {
     }
     impl ser::Hooks for Hooks {
         fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
-            let path = path.to_string();
-            self.fields_to_expect.borrow_mut().remove(&path);
+            let path = path.borrow_str();
+            self.fields_to_expect.borrow_mut().remove(&*path);
             use serde_hooks::Value;
 
             // Note, all owned values will be received here as borrowed, just
             // with their own lifetimes
-            match (path.as_str(), value.value()) {
+            match (path.as_ref(), value.value()) {
                 (
                     "",
                     Value::Struct {
@@ -275,7 +275,7 @@ fn test_replace_in_struct() {
     impl ser::Hooks for Hooks {
         fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
             if !path.segments().is_empty() {
-                value.replace(&format!("R {}", path.to_string()));
+                value.replace(&format!("R {}", path.borrow_str()));
             }
         }
     }
@@ -330,7 +330,7 @@ fn test_replace_in_seq() {
     impl ser::Hooks for Hooks {
         fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
             if !path.segments().is_empty() {
-                value.replace(&format!("R {}", path.to_string()));
+                value.replace(&format!("R {}", path.borrow_str()));
             }
         }
     }

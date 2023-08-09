@@ -21,10 +21,10 @@ fn test_seq_traversing() {
     }
     impl ser::Hooks for Hooks {
         fn on_seq(&self, path: &Path, seq: &mut ser::SeqScope) {
-            let path = path.to_string();
-            self.fields_to_expect.borrow_mut().remove(&path);
+            let path = path.borrow_str();
+            self.fields_to_expect.borrow_mut().remove(&*path);
 
-            match path.as_str() {
+            match path.as_ref() {
                 "vec" => {
                     assert_eq!(seq.seq_len(), Some(3));
                 }
@@ -67,7 +67,7 @@ fn test_seq_skip_element() {
         }
 
         fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
-            assert_eq!(path.to_string(), "");
+            assert_eq!(&*path.borrow_str(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();
         }
@@ -88,7 +88,7 @@ fn test_seq_retain_element() {
         }
 
         fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
-            assert_eq!(path.to_string(), "");
+            assert_eq!(&*path.borrow_str(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();
         }
@@ -109,7 +109,7 @@ fn test_seq_replace_value() {
         }
 
         fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
-            assert_eq!(path.to_string(), "");
+            assert_eq!(&*path.borrow_str(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();
         }

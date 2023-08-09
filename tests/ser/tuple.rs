@@ -36,12 +36,12 @@ fn test_tuple_traversing() {
     }
     impl ser::Hooks for Hooks {
         fn on_tuple(&self, path: &Path, tpl: &mut ser::TupleScope, seq: &mut ser::SeqScope) {
-            let path = path.to_string();
-            self.tuples_to_expect.borrow_mut().remove(path.as_str());
+            let path = path.borrow_str();
+            self.tuples_to_expect.borrow_mut().remove(&*path);
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
-            match path.as_str() {
+            match path.as_ref() {
                 "tuple" => {
                     assert_eq!(tpl.tuple_len(), 2);
                 }
@@ -71,14 +71,12 @@ fn test_tuple_traversing() {
             tpl: &mut ser::TupleScope,
             seq: &mut ser::SeqScope,
         ) {
-            let path = path.to_string();
-            self.tuple_variants_to_expect
-                .borrow_mut()
-                .remove(path.as_str());
+            let path = path.borrow_str();
+            self.tuple_variants_to_expect.borrow_mut().remove(&*path);
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
-            match path.as_str() {
+            match path.as_ref() {
                 "tuple_variant" => {
                     assert_eq!(ev.enum_name(), "Enum");
                     assert_eq!(ev.variant_name(), "TupleVariant");
@@ -95,14 +93,12 @@ fn test_tuple_traversing() {
             tpl: &mut ser::TupleStructScope,
             seq: &mut ser::SeqScope,
         ) {
-            let path = path.to_string();
-            self.tuple_structs_to_expect
-                .borrow_mut()
-                .remove(path.as_str());
+            let path = path.borrow_str();
+            self.tuple_structs_to_expect.borrow_mut().remove(&*path);
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
-            match path.as_str() {
+            match path.as_ref() {
                 "tuple_struct" => {
                     assert_eq!(tpl.tuple_len(), 5);
                     assert_eq!(tpl.struct_name(), "TupleStruct");

@@ -160,7 +160,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
                     skip_field = true;
                 }
 
-                hooks.path_push(PathSegment::SeqIndex(*current_index));
+                hooks.path_push(PathSegment::SeqElement(*current_index));
 
                 if let Some(replacement_value) = &replacement_value {
                     replacement_value

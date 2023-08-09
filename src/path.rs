@@ -1,53 +1,145 @@
-use std::fmt::{Debug, Display, Write};
+use std::{
+    cell::{Ref, RefCell},
+    fmt::{Debug, Display, Write},
+};
 
 use smallvec::SmallVec;
 
 use crate::{StaticValue, Value};
 
-#[derive(Default)]
+/// A path within the structure of serialized data.
+///
+/// A path is a list of segments, each segment representing an element of a
+/// nested container (e.g. a field of a struct, a map entry or a sequence element).
+///
+/// The top level (root) path has no segments. If the top level path is a container,
+/// the first segment on the path will be an element of that container.
 pub struct Path {
     segments: SmallVec<[PathSegment; 8]>,
+    str_cache: RefCell<PathStrCache>,
+}
+
+struct PathStrCache {
+    written_lengths: SmallVec<[u16; 8]>,
+    cache: String,
 }
 
 impl Path {
+    pub(crate) fn new() -> Self {
+        Self {
+            segments: Default::default(),
+            str_cache: RefCell::new(PathStrCache {
+                written_lengths: Default::default(),
+                cache: String::new(), // no allocation initially
+            }),
+        }
+    }
+
     pub(crate) fn push_segment(&mut self, segment: PathSegment) {
         self.segments.push(segment);
     }
 
     pub(crate) fn pop_segment(&mut self) {
         self.segments.pop().expect("unbalanced pop_segment");
+
+        let mut str_cache = self.str_cache.borrow_mut();
+
+        while str_cache.written_lengths.len() > self.segments.len() {
+            // Safety: we're appending valid UTF-8 strings, and removing exactly
+            // the amount of bytes that we have appended, so we are guaranteed
+            // to end up on a valid utf-8 char boundary.
+            // We could have used String::truncate, but it has an unnecessary
+            // safety check & a panic in our case.
+            unsafe {
+                let new_len =
+                    str_cache.cache.len() - *str_cache.written_lengths.last().unwrap() as usize;
+                str_cache.cache.as_mut_vec().truncate(new_len);
+            }
+            str_cache.written_lengths.pop();
+        }
     }
 
+    /// Returns path segments.
     pub fn segments(&self) -> &[PathSegment] {
         &self.segments
     }
-}
 
-impl ToString for Path {
-    fn to_string(&self) -> String {
-        self.segments
-            .iter()
-            .fold(String::default(), |mut acc, item| {
-                match item {
-                    PathSegment::StructField(_) => {
-                        if acc.is_empty() {
-                            write!(&mut acc, "{item}").expect("path concat failed");
+    /// Returns a string representation of the path.
+    ///
+    /// The string representation resembles how you would access elements of your
+    /// data in Rust, starting with the elements of the top-level container.
+    ///
+    /// For example, for the following data structure:
+    /// ```
+    /// struct Outer {
+    ///     inner: Inner,
+    /// }
+    ///
+    /// struct Inner {
+    ///     field: u32,
+    /// }
+    /// ```
+    /// the path to `field` will be `"inner.field"`.
+    ///
+    /// `Path` maintains an internal cache for the string representation of the
+    /// segments that is updated lazily when this method is called. It is
+    /// optimized to reduce allocations and string formatting for individual
+    /// path segments.
+    ///
+    /// This method returns a borrowed Ref for the cached string representation.
+    /// The borrowed Ref must be dropped at the end of the hook otherwise `Path`
+    /// will panic later on new updates.
+    pub fn borrow_str(&self) -> Ref<'_, str> {
+        {
+            let mut str_cache = self.str_cache.borrow_mut();
+            while str_cache.written_lengths.len() < self.segments.len() {
+                if str_cache.cache.capacity() == 0 {
+                    str_cache.cache.reserve(256); // reserve a larger chunk at once, to reduce reallocations
+                }
+
+                let len_before = str_cache.cache.len();
+                match &self.segments[str_cache.written_lengths.len()] {
+                    item @ PathSegment::StructField(_) => {
+                        if str_cache.cache.is_empty() {
+                            write!(&mut str_cache.cache, "{item}").expect("path concat failed");
                         } else {
-                            write!(&mut acc, ".{item}").expect("path concat failed");
+                            write!(&mut str_cache.cache, ".{item}").expect("path concat failed");
                         }
                     }
-                    _ => write!(&mut acc, "{item}").expect("path concat failed"),
+                    item => write!(&mut str_cache.cache, "{item}").expect("path concat failed"),
                 }
-                acc
-            })
+                let written_length = (str_cache.cache.len() - len_before) as u16;
+                str_cache.written_lengths.push(written_length);
+            }
+        }
+
+        Ref::map(self.str_cache.borrow(), |c| c.cache.as_str())
     }
 }
 
-/// Note: for map keys of type `Value::Bytes` the actual bytes are not stored to avoid
-/// allocation on every map key.
+/// A key of a serialized map entry.
 #[derive(Debug, Clone)]
 pub struct PathMapKey {
+    /// Sequential index of the key in the map during serialization.
+    ///
+    /// Note that this is the index as serde "sees" it. If you're using unordered maps (e.g. a HashMap),
+    /// this index will have little meaning and might actually point to different elements
+    /// even if the data in the maps is the exactly the same, or for the same map in different
+    /// application runs.
+    ///
+    /// For ordered maps this index might be useful if your map keys are not trivially serializable,
+    /// like, for example, tuples. In which case you won't have the full key value captured, but would
+    /// still be able to refer to a concrete map entry by its index.
     pub index: usize,
+
+    /// Captured value of the map key.
+    ///
+    /// For trivial values, like numbers, the actual value is captured here.
+    ///
+    /// For non-trivial, compound values, only the metadata is captured.
+    ///
+    /// For map keys of type `Value::Bytes` the actual bytes are not captured to avoid
+    /// allocation on every map key.
     pub value: StaticValue,
 }
 
@@ -82,25 +174,29 @@ impl Display for PathMapKey {
     }
 }
 
+/// A segment in a path that represents an element of a container in the serialized data.
 #[derive(Debug, Clone)]
 pub enum PathSegment {
-    MapKey(PathMapKey),
+    /// The segment is an entry in a map, identified by a map key.
+    MapEntry(PathMapKey),
+    /// The segment is a field in a `struct`, identified by the field name.
     StructField(&'static str),
-    SeqIndex(usize),
+    /// The segment is an element in a sequence or a tuple, identified by its index.
+    SeqElement(usize),
 }
 
 impl Display for PathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PathSegment::MapKey(key) => f.write_fmt(format_args!("[{key}]")),
+            PathSegment::MapEntry(key) => f.write_fmt(format_args!("[{key}]")),
             PathSegment::StructField(field_name) => f.write_str(field_name),
-            PathSegment::SeqIndex(index) => f.write_fmt(format_args!("[{index}]")),
+            PathSegment::SeqElement(index) => f.write_fmt(format_args!("[{index}]")),
         }
     }
 }
 
 impl From<PathMapKey> for PathSegment {
     fn from(map_key: PathMapKey) -> Self {
-        PathSegment::MapKey(map_key)
+        PathSegment::MapEntry(map_key)
     }
 }

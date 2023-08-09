@@ -58,10 +58,10 @@ fn test_struct_traversing() {
     }
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
-            let path = path.to_string();
-            self.fields_to_expect.borrow_mut().remove(&path);
+            let path = path.borrow_str();
+            self.fields_to_expect.borrow_mut().remove(&*path);
 
-            match path.as_str() {
+            match path.as_ref() {
                 "" => {
                     assert_eq!(st.struct_name(), "Outer");
                     assert_eq!(st.struct_len(), 2);
@@ -84,10 +84,10 @@ fn test_struct_traversing() {
             ev: &mut ser::EnumVariantScope,
             st: &mut ser::StructScope,
         ) {
-            let path = path.to_string();
-            self.fields_to_expect.borrow_mut().remove(&path);
+            let path = path.borrow_str();
+            self.fields_to_expect.borrow_mut().remove(&*path);
 
-            match path.as_str() {
+            match path.as_ref() {
                 "payload.e" => {
                     assert_eq!(ev.enum_name(), "Enum");
                     assert_eq!(ev.variant_index(), 1);
@@ -329,7 +329,7 @@ fn test_error() {
 
         fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
             //TODO use mock to ensure this is called
-            assert_eq!(path.to_string(), "");
+            assert_eq!(&*path.borrow_str(), "");
             assert_eq!(
                 *err.error(),
                 ser::HooksError::FieldNotFound("invalid".into())
