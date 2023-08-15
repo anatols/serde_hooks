@@ -165,6 +165,7 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
 
         let hooks = self.inner.borrow().hooks;
 
+        hooks.on_seq(path, &mut seq_scope);
         hooks.on_tuple(path, &mut tuple_scope, &mut seq_scope);
 
         seq_scope.into_actions()
@@ -179,6 +180,7 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
 
         let hooks = self.inner.borrow().hooks;
 
+        hooks.on_seq(path, &mut seq_scope);
         hooks.on_tuple(path, &mut tuple_scope, &mut seq_scope);
         hooks.on_tuple_struct(path, &mut tuple_struct_scope, &mut seq_scope);
 
@@ -201,6 +203,7 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         let hooks = self.inner.borrow().hooks;
 
         hooks.on_enum_variant(path, &mut variant_scope);
+        hooks.on_seq(path, &mut seq_scope);
         hooks.on_tuple(path, &mut tuple_scope, &mut seq_scope);
         hooks.on_tuple_variant(path, &mut variant_scope, &mut tuple_scope, &mut seq_scope);
 
