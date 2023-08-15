@@ -2,6 +2,11 @@ use serde::Serializer;
 
 use crate::{ser::HooksError, Path};
 
+/// Inspect errors and choose recovery actions.
+///
+/// See [`Hooks::on_scope_error`](crate::ser::Hooks::on_scope_error).
+///
+/// By default the errors are propagated.
 pub struct ErrorScope<'p> {
     path: &'p Path,
     error: HooksError,
@@ -25,18 +30,24 @@ impl<'p> ErrorScope<'p> {
         }
     }
 
+    /// Returns the error the hook was called about.
     pub fn error(&self) -> &HooksError {
         &self.error
     }
 
+    /// Ignore this error and continue serialization.
     pub fn ignore(&mut self) {
         self.ignore = true;
     }
 
+    /// Immediately panic.
+    ///
+    /// The panic message will contain the error message.
     pub fn panic(&mut self) {
         panic!("{}", self.format_error_message());
     }
 
+    /// Propagate this error as a custom serialization error.
     pub fn propagate(&mut self) {
         self.ignore = false;
     }
