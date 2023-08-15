@@ -1,5 +1,7 @@
+#![warn(missing_docs)]
 #![doc = include_str!("../docs/lib.md")]
 
+/// Serialization with runtime hooks.
 pub mod ser;
 
 mod case;

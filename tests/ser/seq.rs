@@ -66,7 +66,7 @@ fn test_seq_skip_element() {
             seq.skip_element(1).skip_element(12345);
         }
 
-        fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
+        fn on_scope_error(&self, path: &Path, err: &mut ser::ErrorScope) {
             assert_eq!(&*path.borrow_str(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();
@@ -87,7 +87,7 @@ fn test_seq_retain_element() {
                 .retain_element(12345);
         }
 
-        fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
+        fn on_scope_error(&self, path: &Path, err: &mut ser::ErrorScope) {
             assert_eq!(&*path.borrow_str(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();
@@ -108,7 +108,7 @@ fn test_seq_replace_value() {
                 .replace_value(12345, "error");
         }
 
-        fn on_error(&self, path: &Path, err: &mut ser::ErrorScope) {
+        fn on_scope_error(&self, path: &Path, err: &mut ser::ErrorScope) {
             assert_eq!(&*path.borrow_str(), "");
             assert_eq!(*err.error(), ser::HooksError::IndexNotFound(12345));
             err.ignore();

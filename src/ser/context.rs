@@ -113,7 +113,7 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         let path = &self.inner.borrow().path;
 
         let mut scope = ErrorScope::new(path, error);
-        self.inner.borrow().hooks.on_error(path, &mut scope);
+        self.inner.borrow().hooks.on_scope_error(path, &mut scope);
         scope.into_result::<S>()
     }
 
