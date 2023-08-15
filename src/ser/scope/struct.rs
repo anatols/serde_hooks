@@ -9,6 +9,10 @@ use crate::{
 //TODO add rename_field_case
 //TODO document errors
 
+/// Inspects structs and modify their contents.
+///
+/// See [`Hooks::on_struct`](crate::ser::Hooks::on_struct),
+/// [`Hooks::on_struct_variant`](crate::ser::Hooks::on_struct_variant).
 pub struct StructScope {
     struct_len: usize,
     struct_name: &'static str,
