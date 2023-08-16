@@ -9,7 +9,6 @@ use super::{
     SeqElementAction, SeqElementActions, SerializableKind, SerializerWrapperHooks, ValueAction,
     VariantAction, VariantActions,
 };
-use crate::static_str::into_static_str;
 use crate::Case;
 
 pub(crate) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
@@ -115,8 +114,13 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             ValueAction::ValueReplaced(r) => r,
             ValueAction::ContinueSerialization(s) => {
                 let variant_actions = self.hooks.on_unit_variant(name, variant, variant_index);
-                let (name, variant_index, variant) =
-                    apply_variant_actions(name, variant_index, variant, variant_actions);
+                let (name, variant_index, variant) = apply_variant_actions(
+                    name,
+                    variant_index,
+                    variant,
+                    variant_actions,
+                    self.hooks,
+                );
                 s.serialize_unit_variant(name, variant_index, variant)
             }
         }
@@ -142,8 +146,13 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             ValueAction::ValueReplaced(r) => r,
             ValueAction::ContinueSerialization(s) => {
                 let variant_actions = self.hooks.on_newtype_variant(name, variant, variant_index);
-                let (name, variant_index, variant) =
-                    apply_variant_actions(name, variant_index, variant, variant_actions);
+                let (name, variant_index, variant) = apply_variant_actions(
+                    name,
+                    variant_index,
+                    variant,
+                    variant_actions,
+                    self.hooks,
+                );
                 s.serialize_newtype_variant(name, variant_index, variant, value)
             }
         }
@@ -268,8 +277,13 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
                         SerializeSeqWrapper::new_wrapped_seq(serialize_seq, self.hooks, seq_actions)
                     })
                 } else {
-                    let (name, variant_index, variant) =
-                        apply_variant_actions(name, variant_index, variant, variant_actions);
+                    let (name, variant_index, variant) = apply_variant_actions(
+                        name,
+                        variant_index,
+                        variant,
+                        variant_actions,
+                        self.hooks,
+                    );
 
                     s.serialize_tuple_variant(name, variant_index, variant, len)
                         .map(|serialize_tuple_variant| {
@@ -344,8 +358,13 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
                     self.hooks
                         .on_struct_variant(len, name, variant, variant_index);
 
-                let (name, variant_index, variant) =
-                    apply_variant_actions(name, variant_index, variant, variant_actions);
+                let (name, variant_index, variant) = apply_variant_actions(
+                    name,
+                    variant_index,
+                    variant,
+                    variant_actions,
+                    self.hooks,
+                );
 
                 s.serialize_struct_variant(name, variant_index, variant, len)
                     .map(|serialize_struct_variant| {
@@ -366,6 +385,7 @@ fn apply_variant_actions(
     variant_index: u32,
     variant: &'static str,
     actions: VariantActions,
+    hooks: &impl SerializerWrapperHooks,
 ) -> (&'static str, u32, &'static str) {
     let mut new_name: Option<Cow<'static, str>> = None;
     let mut enum_case: Option<Case> = None;
@@ -404,9 +424,9 @@ fn apply_variant_actions(
     }
 
     (
-        into_static_str(new_name.unwrap_or(name.into())),
+        hooks.into_static_str(new_name.unwrap_or(name.into())),
         new_variant_index.unwrap_or(variant_index),
-        into_static_str(new_variant.unwrap_or(variant.into())),
+        hooks.into_static_str(new_variant.unwrap_or(variant.into())),
     )
 }
 

@@ -4,7 +4,6 @@ use serde::ser::{SerializeStruct, SerializeStructVariant};
 use serde::{Serialize, Serializer};
 
 use crate::ser::HooksError;
-use crate::static_str::into_static_str;
 use crate::{Case, Value};
 
 use super::{
@@ -173,10 +172,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                 let res = if skip_field {
                     wrap.skip_field(key)
                 } else if let Some(replacement_value) = replacement_value {
-                    wrap.serialize_field(into_static_str(field_key), &replacement_value)
+                    wrap.serialize_field(hooks.into_static_str(field_key), &replacement_value)
                 } else {
                     let s = SerializableWithHooks::new(value, *hooks, SerializableKind::Value);
-                    wrap.serialize_field(into_static_str(field_key), &s)
+                    wrap.serialize_field(hooks.into_static_str(field_key), &s)
                 };
 
                 hooks.path_pop();
