@@ -7,8 +7,8 @@ use std::rc::Rc;
 use serde::{Serialize, Serializer};
 
 use super::scope::{
-    EnumVariantScope, ErrorScope, MapKeyScope, MapScope, SeqScope, StructScope, TupleScope,
-    TupleStructScope, ValueScope,
+    EnumVariantScope, ErrorScope, MapKeyScope, MapScope, SeqScope, StartScope, StructScope,
+    TupleScope, TupleStructScope, ValueScope,
 };
 use super::wrapper::{
     MapEntryActions, SeqElementActions, SerializableKind, SerializerWrapper,
@@ -37,13 +37,13 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, 
     where
         S: Serializer,
     {
-        self.context.start();
+        self.context.on_start(serializer.is_human_readable());
         let res = self.serializable.serialize(SerializerWrapper::new(
             serializer,
             &self.context,
             SerializableKind::Value,
         ));
-        self.context.end();
+        self.context.on_end();
         res
     }
 }
@@ -267,11 +267,14 @@ impl<'h, H: Hooks> Context<'h, H> {
         }
     }
 
-    pub(super) fn start(&self) {
-        self.inner.borrow().hooks.on_start();
+    pub(super) fn on_start(&self, is_human_readable: bool) {
+        self.inner
+            .borrow()
+            .hooks
+            .on_start(&mut StartScope::new(is_human_readable));
     }
 
-    pub(super) fn end(&self) {
+    pub(super) fn on_end(&self) {
         self.inner.borrow().hooks.on_end();
     }
 }
