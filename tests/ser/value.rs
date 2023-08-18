@@ -349,3 +349,16 @@ fn test_replace_in_seq() {
         "\n\nExpected YAML:\n\n{expected}\n\nActual YAML:\n\n{actual}\n\n"
     );
 }
+
+#[test]
+fn test_fail_serialization() {
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_value<S: serde::Serializer>(&self, _path: &Path, value: &mut ser::ValueScope<S>) {
+            value.fail_serialization("FAUX ERROR");
+        }
+    }
+
+    let err = serde_yaml::to_string(&ser::hook(&(), &Hooks)).unwrap_err();
+    assert!(err.to_string().contains("FAUX ERROR"))
+}

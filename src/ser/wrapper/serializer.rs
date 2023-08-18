@@ -47,10 +47,10 @@ macro_rules! on_value_callback {
         match $self.kind {
             SerializableKind::Value => $self
                 .hooks
-                .on_value($self.serializer, value_ctor!($variant $(, $arg)*)),
+                .on_value($self.serializer, value_ctor!($variant $(, $arg)*))?,
             SerializableKind::MapKey => $self
                 .hooks
-                .on_map_key($self.serializer, value_ctor!($variant $(, $arg)*)),
+                .on_map_key($self.serializer, value_ctor!($variant $(, $arg)*))?,
         }
     }
 }

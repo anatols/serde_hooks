@@ -46,9 +46,17 @@ pub(crate) trait SerializerWrapperHooks {
         variant_index: u32,
     ) -> (VariantActions, StructFieldActions);
 
-    fn on_map_key<S: Serializer>(&self, serializer: S, key: crate::Value) -> ValueAction<S>;
+    fn on_map_key<S: Serializer>(
+        &self,
+        serializer: S,
+        key: crate::Value,
+    ) -> Result<ValueAction<S>, S::Error>;
 
-    fn on_value<S: Serializer>(&self, serializer: S, value: crate::Value) -> ValueAction<S>;
+    fn on_value<S: Serializer>(
+        &self,
+        serializer: S,
+        value: crate::Value,
+    ) -> Result<ValueAction<S>, S::Error>;
 
     fn on_seq(&self, len: Option<usize>) -> SeqElementActions;
 

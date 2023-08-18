@@ -97,7 +97,11 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         (variant_scope.into_actions(), struct_scope.into_actions())
     }
 
-    fn on_map_key<S: Serializer>(&self, serializer: S, value: Value) -> ValueAction<S> {
+    fn on_map_key<S: Serializer>(
+        &self,
+        serializer: S,
+        value: Value,
+    ) -> Result<ValueAction<S>, S::Error> {
         let path = &self.inner.borrow().path;
 
         let mut scope = MapKeyScope::new(serializer, value);
@@ -105,7 +109,11 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         scope.into_action()
     }
 
-    fn on_value<S: Serializer>(&self, serializer: S, value: Value) -> ValueAction<S> {
+    fn on_value<S: Serializer>(
+        &self,
+        serializer: S,
+        value: Value,
+    ) -> Result<ValueAction<S>, S::Error> {
         let path = &self.inner.borrow().path;
 
         let mut scope = ValueScope::new(serializer, value);

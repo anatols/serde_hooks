@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Serialize, Serializer};
 
 use crate::{ser::wrapper::ValueAction, Value};
@@ -8,6 +10,7 @@ use crate::{ser::wrapper::ValueAction, Value};
 pub struct ValueScope<'v, S: Serializer> {
     action: Option<ValueAction<S>>,
     value: Value<'v>,
+    result: Result<(), String>,
 }
 
 impl<'v, S: Serializer> ValueScope<'v, S> {
@@ -15,11 +18,14 @@ impl<'v, S: Serializer> ValueScope<'v, S> {
         Self {
             action: Some(ValueAction::ContinueSerialization(serializer)),
             value,
+            result: Ok(()),
         }
     }
 
-    pub(crate) fn into_action(self) -> ValueAction<S> {
-        self.action.unwrap()
+    pub(crate) fn into_action(self) -> Result<ValueAction<S>, S::Error> {
+        self.result
+            .map(|_| self.action.unwrap())
+            .map_err(serde::ser::Error::custom)
     }
 
     /// Returns the serialized value.
@@ -28,6 +34,11 @@ impl<'v, S: Serializer> ValueScope<'v, S> {
     /// whilst for compound values, like structs, only metadata is available.
     pub fn value(&self) -> &Value {
         &self.value
+    }
+
+    /// Fail serialization with a custom error.
+    pub fn fail_serialization(&mut self, error: impl Display) {
+        self.result = Err(error.to_string());
     }
 
     /// Replace the value with another serializable value.

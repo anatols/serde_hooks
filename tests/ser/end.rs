@@ -98,9 +98,36 @@ fn test_error_result_bincode() {
         result: Cell::new(None),
     };
 
-    let res = bincode::serialize(&ser::hook(&Payload { vec: vec![1, 2, 3] }, &hooks));
-    let hooks_res = hooks.result.into_inner().unwrap();
-    assert!(res.is_err());
-    assert!(hooks_res.is_err());
-    assert_eq!(res.unwrap_err().to_string(), hooks_res.unwrap_err());
+    let err = bincode::serialize(&ser::hook(&Payload { vec: vec![1, 2, 3] }, &hooks)).unwrap_err();
+    let hooks_err = hooks.result.into_inner().unwrap().unwrap_err();
+    assert_eq!(err.to_string(), hooks_err);
+}
+
+#[test]
+fn test_error_result_failed_from_hook() {
+    struct Hooks {
+        result: Cell<Option<Result<(), String>>>,
+    }
+    impl ser::Hooks for Hooks {
+        fn on_value<S: serde::Serializer>(
+            &self,
+            _path: &serde_hooks::Path,
+            value: &mut ser::ValueScope<S>,
+        ) {
+            value.fail_serialization("FAUX ERROR");
+        }
+
+        fn on_end<Error: serde::ser::Error>(&self, end: &mut ser::EndScope<Error>) {
+            self.result
+                .set(Some(end.result().map_err(|err| err.to_string())));
+        }
+    }
+    let hooks = Hooks {
+        result: Cell::new(None),
+    };
+
+    let err = bincode::serialize(&ser::hook(&(), &hooks)).unwrap_err();
+    let hooks_err = hooks.result.into_inner().unwrap().unwrap_err();
+    assert_eq!(err.to_string(), hooks_err);
+    assert!(hooks_err.contains("FAUX ERROR"));
 }
