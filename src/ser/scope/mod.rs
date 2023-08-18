@@ -18,4 +18,5 @@ pub use tuple::{TupleScope, TupleStructScope};
 pub use value::ValueScope;
 pub use variant::EnumVariantScope;
 
+/// Scope for map keys. Alias for [`ValueScope`].
 pub type MapKeyScope<'v, S> = ValueScope<'v, S>;
