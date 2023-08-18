@@ -9,7 +9,7 @@ fn test_is_called() {
         is_called: Cell<bool>,
     }
     impl ser::Hooks for Hooks {
-        fn on_end(&self, _end: &mut ser::EndScope) {
+        fn on_end<Error: serde::ser::Error>(&self, _end: &mut ser::EndScope<Error>) {
             self.is_called.set(true);
         }
     }
@@ -37,7 +37,7 @@ fn test_take_static_strs() {
             st.rename_all_fields_case("UPPERCASE");
         }
 
-        fn on_end(&self, end: &mut ser::EndScope) {
+        fn on_end<Error: serde::ser::Error>(&self, end: &mut ser::EndScope<Error>) {
             unsafe { self.static_strs.set(end.take_static_strs()) }
         }
     }
@@ -51,4 +51,56 @@ fn test_take_static_strs() {
     let static_strs = hooks.static_strs.into_inner();
     assert_eq!(static_strs.len(), 1);
     assert_eq!(Pin::get_ref(static_strs[0].as_ref()), "FIELD");
+}
+
+#[test]
+fn test_ok_result() {
+    struct Hooks {
+        result: Cell<Option<Result<(), String>>>,
+    }
+    impl ser::Hooks for Hooks {
+        fn on_end<Error: serde::ser::Error>(&self, end: &mut ser::EndScope<Error>) {
+            self.result
+                .set(Some(end.result().map_err(|err| err.to_string())));
+        }
+    }
+    let hooks = Hooks {
+        result: Cell::new(None),
+    };
+
+    serde_json::to_string(&ser::hook(&(), &hooks)).unwrap();
+    assert!(hooks.result.into_inner().unwrap().is_ok());
+}
+
+#[test]
+fn test_error_result_bincode() {
+    #[derive(Serialize)]
+    struct Payload {
+        vec: Vec<u8>,
+    }
+    struct Hooks {
+        result: Cell<Option<Result<(), String>>>,
+    }
+    impl ser::Hooks for Hooks {
+        fn on_seq(&self, _path: &serde_hooks::Path, seq: &mut ser::SeqScope) {
+            // We rely here on bincode not being capable of serializing
+            // sequences of unknown length. Skipping a sequence element makes it
+            // unknown length in current implementation of SeqScope.
+            seq.skip_element(0);
+        }
+
+        fn on_end<Error: serde::ser::Error>(&self, end: &mut ser::EndScope<Error>) {
+            self.result
+                .set(Some(end.result().map_err(|err| err.to_string())));
+        }
+    }
+    let hooks = Hooks {
+        result: Cell::new(None),
+    };
+
+    let res = bincode::serialize(&ser::hook(&Payload { vec: vec![1, 2, 3] }, &hooks));
+    let hooks_res = hooks.result.into_inner().unwrap();
+    assert!(res.is_err());
+    assert!(hooks_res.is_err());
+    assert_eq!(res.unwrap_err().to_string(), hooks_res.unwrap_err());
 }

@@ -3,13 +3,25 @@ use std::pin::Pin;
 /// Inspect serialization state after serialization ends.
 ///
 /// See [`Hooks::on_end`](crate::ser::Hooks::on_end).
-pub struct EndScope {
+pub struct EndScope<'e, Error: serde::ser::Error> {
     static_strs: Vec<Pin<Box<str>>>,
+    result: Result<(), &'e Error>,
 }
 
-impl EndScope {
-    pub(crate) fn new(static_strs: Vec<Pin<Box<str>>>) -> Self {
-        Self { static_strs }
+impl<'e, Error: serde::ser::Error> EndScope<'e, Error> {
+    pub(crate) fn new(static_strs: Vec<Pin<Box<str>>>, result: Result<(), &'e Error>) -> Self {
+        Self {
+            static_strs,
+            result,
+        }
+    }
+
+    /// Returns serialization result.
+    ///
+    /// Note, only the error side of the result is returned. The Ok side is
+    /// serializer-dependent and does not have any generic trait bounds.
+    pub fn result(&self) -> Result<(), &'e Error> {
+        self.result
     }
 
     /// Forces all static strings that were captured during serialization to be leaked

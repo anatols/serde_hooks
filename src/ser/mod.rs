@@ -31,7 +31,7 @@ pub trait Hooks {
     ///
     /// This hook is called regardless of whether the serialization has succeeded or failed.
     #[allow(unused_variables)]
-    fn on_end(&self, end: &mut EndScope) {}
+    fn on_end<Error: serde::ser::Error>(&self, end: &mut EndScope<Error>) {}
 
     /// Called before a value is serialized.
     ///

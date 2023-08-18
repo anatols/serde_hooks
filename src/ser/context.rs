@@ -43,7 +43,7 @@ impl<T: Serialize + ?Sized, H: Hooks> Serialize for SerializableWithContext<'_, 
             &self.context,
             SerializableKind::Value,
         ));
-        self.context.on_end();
+        self.context.on_end(res.as_ref().map(|_| ()));
         res
     }
 }
@@ -246,12 +246,12 @@ impl<'h, H: Hooks> Context<'h, H> {
             .on_start(&mut StartScope::new(is_human_readable));
     }
 
-    pub(super) fn on_end(&self) {
+    pub(super) fn on_end(&self, result: Result<(), &impl serde::ser::Error>) {
         let static_strs = std::mem::take(&mut self.inner.borrow_mut().static_strs);
         self.inner
             .borrow()
             .hooks
-            .on_end(&mut EndScope::new(static_strs));
+            .on_end(&mut EndScope::new(static_strs, result));
     }
 }
 
