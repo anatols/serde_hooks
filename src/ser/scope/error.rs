@@ -36,8 +36,9 @@ impl<'p> ErrorScope<'p> {
     }
 
     /// Ignore this error and continue serialization.
-    pub fn ignore(&mut self) {
+    pub fn ignore(&mut self) -> &mut Self {
         self.ignore = true;
+        self
     }
 
     /// Immediately panic.
@@ -48,8 +49,9 @@ impl<'p> ErrorScope<'p> {
     }
 
     /// Propagate this error as a custom serialization error.
-    pub fn propagate(&mut self) {
+    pub fn propagate(&mut self) -> &mut Self {
         self.ignore = false;
+        self
     }
 
     fn format_error_message(&self) -> String {

@@ -1,3 +1,4 @@
+mod end;
 mod seq;
 mod start;
 mod r#struct;

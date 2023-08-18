@@ -1,4 +1,6 @@
 /// Inspect serializer information before serialization begins.
+///
+/// See [`Hooks::on_start`](crate::ser::Hooks::on_start).
 pub struct StartScope {
     is_human_readable: bool,
 }

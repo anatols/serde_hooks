@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::cell::{RefCell, RefMut};
-use std::collections::HashSet;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -14,6 +13,7 @@ use super::wrapper::{
     MapEntryActions, SeqElementActions, SerializableKind, SerializerWrapper,
     SerializerWrapperHooks, StructFieldActions, ValueAction, VariantActions,
 };
+use super::EndScope;
 use crate::path::{Path, PathSegment};
 use crate::ser::{Hooks, HooksError};
 use crate::Value;
@@ -214,42 +214,14 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         (variant_scope.into_actions(), seq_scope.into_actions())
     }
 
-    /// Serde expects many things to be `&'static str`.
-    ///
-    /// For example, struct fields, because for structs the field names are known
-    /// at compile time. A serializer can theoretically
-    /// hold on to those field name references forever and expect them to be valid.
-    /// To be able to rename a field, we thus need to somehow generate a string at
-    /// runtime that will have a 'static lifetime.
-    ///
-    /// The 'static lifetime is defined as 'will live till the program ends'. Here
-    /// we keep a set of pinned Box<str>, and store unique names in it. Although
-    /// boxes can move in the set, where they point remains pinned in place until the end
-    /// of serialization. For all practical purposes those boxed strs are static,
-    /// so safe to transmute to 'static lifetime here.
-    ///
-    /// When the Context is dropped, we explicitly leak all stored boxes, and they become
-    /// truly `&'static`. This is obviously "leaking" memory on each new field, but hey,
-    /// how many of those unique renamed fields are you planning to have?
     fn into_static_str(&self, key: std::borrow::Cow<'static, str>) -> &'static str {
         match key {
             Cow::Borrowed(static_key) => static_key,
             Cow::Owned(string_key) => {
                 let mut static_strs = RefMut::map(self.inner.borrow_mut(), |r| &mut r.static_strs);
                 let boxed_key = Pin::new(string_key.into_boxed_str());
-
-                let static_key: &'static str = match static_strs.get(&boxed_key) {
-                    Some(existing_boxed_key) => unsafe {
-                        std::mem::transmute::<&str, &'static str>(existing_boxed_key)
-                    },
-                    None => {
-                        let static_key =
-                            unsafe { std::mem::transmute::<&str, &'static str>(&boxed_key) };
-                        static_strs.insert(boxed_key);
-                        static_key
-                    }
-                };
-
+                let static_key = unsafe { std::mem::transmute::<&str, &'static str>(&boxed_key) };
+                static_strs.push(boxed_key);
                 static_key
             }
         }
@@ -262,7 +234,7 @@ impl<'h, H: Hooks> Context<'h, H> {
             inner: Rc::new(RefCell::new(ContextInner {
                 path: Path::new(),
                 hooks,
-                static_strs: HashSet::new(),
+                static_strs: Vec::new(),
             })),
         }
     }
@@ -275,24 +247,18 @@ impl<'h, H: Hooks> Context<'h, H> {
     }
 
     pub(super) fn on_end(&self) {
-        self.inner.borrow().hooks.on_end();
-    }
-}
-
-impl<H: Hooks> Drop for Context<'_, H> {
-    fn drop(&mut self) {
-        // Leak all static strings
-        let mut static_strs = RefMut::map(self.inner.borrow_mut(), |r| &mut r.static_strs);
-        static_strs.drain().for_each(|pinned_str| {
-            Box::leak(Pin::into_inner(pinned_str));
-        });
+        let static_strs = std::mem::take(&mut self.inner.borrow_mut().static_strs);
+        self.inner
+            .borrow()
+            .hooks
+            .on_end(&mut EndScope::new(static_strs));
     }
 }
 
 struct ContextInner<'h, H: Hooks> {
     path: Path,
     hooks: &'h H,
-    static_strs: HashSet<Pin<Box<str>>>,
+    static_strs: Vec<Pin<Box<str>>>,
 }
 
 #[test]
@@ -329,13 +295,7 @@ fn test_into_static_str() {
     let first_instance: &'static str = context.into_static_str(Cow::Owned(baz_str.to_string()));
     assert_refs_ne(baz_str, first_instance);
 
-    // For a repeated owned string a ref to the previous instance is returned
-    assert_refs_eq(
-        context.into_static_str(Cow::Owned(baz_str.to_string())),
-        first_instance,
-    );
-
     // Static strings are still pass-through, even if we have cached the exact same
-    // owned one (i.e., we don't want hash lookups)
+    // owned one
     assert_refs_eq(context.into_static_str(Cow::Borrowed(baz_str)), baz_str);
 }

@@ -1,3 +1,4 @@
+mod end;
 mod error;
 mod map;
 mod seq;
@@ -7,6 +8,7 @@ mod tuple;
 mod value;
 mod variant;
 
+pub use end::EndScope;
 pub use error::ErrorScope;
 pub use map::{MapKeySelector, MapScope};
 pub use r#struct::StructScope;

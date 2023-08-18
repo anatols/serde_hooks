@@ -8,8 +8,8 @@ mod value;
 mod wrapper;
 
 pub use scope::{
-    EnumVariantScope, ErrorScope, MapKeyScope, MapKeySelector, MapScope, SeqScope, StartScope,
-    StructScope, TupleScope, TupleStructScope, ValueScope,
+    EndScope, EnumVariantScope, ErrorScope, MapKeyScope, MapKeySelector, MapScope, SeqScope,
+    StartScope, StructScope, TupleScope, TupleStructScope, ValueScope,
 };
 
 use context::SerializableWithContext;
@@ -24,12 +24,14 @@ use crate::Path;
 /// serialized data you're called back from.
 pub trait Hooks {
     /// Called at the beginning of serialization, before any serializer calls are made.
+    #[allow(unused_variables)]
     fn on_start(&self, start: &mut StartScope) {}
 
     /// Called after the serialization.
     ///
     /// This hook is called regardless of whether the serialization has succeeded or failed.
-    fn on_end(&self) {}
+    #[allow(unused_variables)]
+    fn on_end(&self, end: &mut EndScope) {}
 
     /// Called before a value is serialized.
     ///
