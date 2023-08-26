@@ -9,7 +9,7 @@ use crate::{
 //TODO add rename_field_case
 //TODO document errors
 
-/// Inspects structs and modify their contents.
+/// Inspect structs and modify their contents.
 ///
 /// See [`Hooks::on_struct`](crate::ser::Hooks::on_struct),
 /// [`Hooks::on_struct_variant`](crate::ser::Hooks::on_struct_variant).
