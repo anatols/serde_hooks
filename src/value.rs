@@ -203,7 +203,7 @@ pub enum Value<'v> {
 
 /// A [`Value`] with static lifetime for borrowed data (strings, bytes).
 ///
-/// See [Static strings](crate#static-strings) for more info.
+/// See [Static strings](crate::ser#static-strings) for more info.
 pub type StaticValue = Value<'static>;
 
 impl Eq for Value<'_> {}

@@ -30,7 +30,7 @@ impl<'e, Error: serde::ser::Error> EndScope<'e, Error> {
     /// By default static strings are not leaked and are deallocated after serialization
     /// ends.
     ///
-    /// See [Static strings](crate#static-strings) for more info.
+    /// See [Static strings](crate::ser#static-strings) for more info.
     pub fn leak_static_strs(&mut self) -> &mut Self {
         self.static_strs.drain(..).for_each(|pinned_str| {
             Box::leak(Pin::into_inner(pinned_str));
@@ -49,7 +49,7 @@ impl<'e, Error: serde::ser::Error> EndScope<'e, Error> {
     /// During serialization, your serializer was fed references to these slices, but
     /// transmuted to `&'static str`.
     ///
-    /// See [Static strings](crate#static-strings) for more info.
+    /// See [Static strings](crate::ser#static-strings) for more info.
     ///
     /// # Safety
     ///

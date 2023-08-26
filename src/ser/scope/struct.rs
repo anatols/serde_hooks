@@ -79,7 +79,7 @@ impl StructScope {
     ///
     /// Serde expects field names to be known at compile time, and as such, to be static. Passing in a
     /// borrowed `&'static str` for the new key name here fulfills this. However, passing in
-    /// an owned `String` leads to special handling described in [Static strings](crate#static-strings).
+    /// an owned `String` leads to special handling described in [Static strings](crate::ser#static-strings).
     ///
     /// Returns `self` to allow chaining calls.
     pub fn rename_field(
@@ -105,7 +105,7 @@ impl StructScope {
     ///
     /// Serde expects field names to be known at compile time, and as such, to be static.
     /// Renaming field names with a case convention will produce strings in runtime,
-    /// which leads to special handling described in [Static strings](crate#static-strings).
+    /// which leads to special handling described in [Static strings](crate::ser#static-strings).
     ///
     /// Returns `self` to allow chaining calls.
     pub fn rename_all_fields_case(&mut self, case: impl Into<Case>) -> &mut Self {
