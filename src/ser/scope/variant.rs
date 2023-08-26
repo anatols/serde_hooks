@@ -48,9 +48,9 @@ impl EnumVariantScope {
         self
     }
 
-    pub fn rename_enum_case(&mut self, new_enum_case: Case) -> &mut Self {
+    pub fn rename_enum_case(&mut self, new_enum_case: impl Into<Case>) -> &mut Self {
         self.actions
-            .push(VariantAction::RenameEnumCase(new_enum_case));
+            .push(VariantAction::RenameEnumCase(new_enum_case.into()));
         self
     }
 
@@ -60,9 +60,9 @@ impl EnumVariantScope {
         self
     }
 
-    pub fn rename_variant_case(&mut self, new_variant_case: Case) -> &mut Self {
+    pub fn rename_variant_case(&mut self, new_variant_case: impl Into<Case>) -> &mut Self {
         self.actions
-            .push(VariantAction::RenameVariantCase(new_variant_case));
+            .push(VariantAction::RenameVariantCase(new_variant_case.into()));
         self
     }
 

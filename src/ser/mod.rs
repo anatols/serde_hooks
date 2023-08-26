@@ -308,7 +308,6 @@ pub enum HooksError {
 ///
 /// assert_eq!(json, r#"{"FULL_NAME":"John Doe"}"#);
 /// ```
-/// For more examples, check the documentation of [Hooks].
 pub fn hook<'s, 'h: 's, T: Serialize + ?Sized, H: Hooks>(
     serializable: &'s T,
     hooks: &'h H,

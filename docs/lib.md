@@ -210,3 +210,7 @@ On the global level, the fewer hooks you implement, the lower the performance im
 Next thing to look after is the amount of actions you want performed on your data. The `#[serde]` derive attributes are processed at compile time. This means that, for example, your struct fields will get renamed at compile time to the case you want, and it will be zero cost at runtime. This is obviously not zero cost when the renaming needs to happen as a hook action.
 
 Generally speaking, if your serialization is performance-critical, you should probably not use hooks. Or at least benchmark before you do.
+
+# Examples
+
+There are more examples available in the repository, in the `examples` directory.

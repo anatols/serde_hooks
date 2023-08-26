@@ -19,3 +19,12 @@ serde_yaml = "0.9"
 serde_bytes = "0.11"
 indoc = "2"
 serde-reflection = "0.3"
+
+[package.metadata.docs.rs]
+cargo-args = ["--lib", "--no-deps", "-Zunstable-options", "-Zrustdoc-scrape-examples"]
+
+[[example]]
+name = "ser"
+test = true
+crate-type = ["lib"]
+doc-scrape-examples = true
