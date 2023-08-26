@@ -11,7 +11,7 @@ use super::scope::{
 };
 use super::wrapper::{
     MapEntryActions, SeqElementActions, SerializableKind, SerializerWrapper,
-    SerializerWrapperHooks, StructFieldActions, ValueAction, VariantActions,
+    SerializerWrapperHooks, StructActions, StructFieldActions, ValueAction, VariantActions,
 };
 use super::EndScope;
 use crate::path::{Path, PathSegment};
@@ -69,7 +69,11 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         scope.into_actions()
     }
 
-    fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> StructFieldActions {
+    fn on_struct(
+        &self,
+        struct_len: usize,
+        struct_name: &'static str,
+    ) -> (StructActions, StructFieldActions) {
         let path = &self.inner.borrow().path;
         let mut scope = StructScope::new(struct_len, struct_name);
         self.inner.borrow().hooks.on_struct(path, &mut scope);
@@ -82,7 +86,7 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         enum_name: &'static str,
         variant_name: &'static str,
         variant_index: u32,
-    ) -> (VariantActions, StructFieldActions) {
+    ) -> (VariantActions, StructActions, StructFieldActions) {
         let path = &self.inner.borrow().path;
 
         let mut variant_scope = EnumVariantScope::new(enum_name, variant_name, variant_index);
@@ -94,7 +98,8 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         hooks.on_struct(path, &mut struct_scope);
         hooks.on_struct_variant(path, &mut variant_scope, &mut struct_scope);
 
-        (variant_scope.into_actions(), struct_scope.into_actions())
+        let (struct_actions, field_actions) = struct_scope.into_actions();
+        (variant_scope.into_actions(), struct_actions, field_actions)
     }
 
     fn on_map_key<S: Serializer>(

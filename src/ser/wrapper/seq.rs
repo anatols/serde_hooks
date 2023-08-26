@@ -55,6 +55,7 @@ pub(crate) enum SerializeSeqWrapper<'h, S: Serializer, H: SerializerWrapperHooks
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H> {
+    //TODO refactor constructors here the same way it's done in SerializeStructWrapper
     pub(super) fn new_wrapped_seq(
         serialize_seq: S::SerializeSeq,
         hooks: &'h H,

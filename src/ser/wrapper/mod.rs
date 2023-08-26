@@ -36,7 +36,11 @@ pub(crate) trait SerializerWrapperHooks {
         variant_index: u32,
     ) -> VariantActions;
 
-    fn on_struct(&self, struct_len: usize, struct_name: &'static str) -> StructFieldActions;
+    fn on_struct(
+        &self,
+        struct_len: usize,
+        struct_name: &'static str,
+    ) -> (StructActions, StructFieldActions);
 
     fn on_struct_variant(
         &self,
@@ -44,7 +48,7 @@ pub(crate) trait SerializerWrapperHooks {
         enum_name: &'static str,
         variant_name: &'static str,
         variant_index: u32,
-    ) -> (VariantActions, StructFieldActions);
+    ) -> (VariantActions, StructActions, StructFieldActions);
 
     fn on_map_key<S: Serializer>(
         &self,
@@ -84,6 +88,10 @@ pub(crate) enum StructFieldAction {
 }
 
 pub(crate) type StructFieldActions = SmallVec<[StructFieldAction; 8]>;
+
+pub(crate) struct StructActions {
+    pub(crate) serialize_as_map: bool,
+}
 
 pub(crate) enum MapEntryAction {
     Retain(MapKeySelector),

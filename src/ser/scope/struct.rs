@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 
 use crate::{
-    ser::wrapper::{StructFieldAction, StructFieldActions},
+    ser::wrapper::{StructActions, StructFieldAction, StructFieldActions},
     Case, StaticValue,
 };
 
-//TODO add support for flatten and serialize_as_map
+//TODO add support for flatten
 //TODO add rename_field_case
 //TODO document errors
 
@@ -16,7 +16,8 @@ use crate::{
 pub struct StructScope {
     struct_len: usize,
     struct_name: &'static str,
-    actions: StructFieldActions,
+    struct_actions: StructActions,
+    field_actions: StructFieldActions,
 }
 
 impl StructScope {
@@ -24,12 +25,15 @@ impl StructScope {
         Self {
             struct_len,
             struct_name,
-            actions: Default::default(),
+            field_actions: Default::default(),
+            struct_actions: StructActions {
+                serialize_as_map: false,
+            },
         }
     }
 
-    pub(crate) fn into_actions(self) -> StructFieldActions {
-        self.actions
+    pub(crate) fn into_actions(self) -> (StructActions, StructFieldActions) {
+        (self.struct_actions, self.field_actions)
     }
 
     /// Returns the original number of fields in this struct.
@@ -50,7 +54,7 @@ impl StructScope {
     ///
     /// Returns `self` to allow chaining calls.
     pub fn skip_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.actions.push(StructFieldAction::Skip(key.into()));
+        self.field_actions.push(StructFieldAction::Skip(key.into()));
         self
     }
 
@@ -65,7 +69,8 @@ impl StructScope {
     ///
     /// Returns `self` to allow chaining calls.
     pub fn retain_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.actions.push(StructFieldAction::Retain(key.into()));
+        self.field_actions
+            .push(StructFieldAction::Retain(key.into()));
         self
     }
 
@@ -87,7 +92,7 @@ impl StructScope {
         key: impl Into<Cow<'static, str>>,
         new_key: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
-        self.actions
+        self.field_actions
             .push(StructFieldAction::Rename(key.into(), new_key.into()));
         self
     }
@@ -109,7 +114,8 @@ impl StructScope {
     ///
     /// Returns `self` to allow chaining calls.
     pub fn rename_all_fields_case(&mut self, case: impl Into<Case>) -> &mut Self {
-        self.actions.push(StructFieldAction::RenameAll(case.into()));
+        self.field_actions
+            .push(StructFieldAction::RenameAll(case.into()));
         self
     }
 
@@ -140,10 +146,25 @@ impl StructScope {
         key: impl Into<Cow<'static, str>>,
         new_value: impl Into<StaticValue>,
     ) -> &mut Self {
-        self.actions.push(StructFieldAction::ReplaceValue(
+        self.field_actions.push(StructFieldAction::ReplaceValue(
             key.into(),
             new_value.into(),
         ));
+        self
+    }
+
+    /// Serialize this struct as a map.
+    ///
+    /// Some serializers, e.g. `serde_json`, do not distinguish between maps
+    /// and structs and represent them the same way in the serialized output.
+    /// Others however, like `ron`, do represent structs and maps differently.
+    ///
+    /// Calling this method makes the struct to be fed to the serializer as map
+    /// with string keys.
+    ///
+    /// Returns `self` to allow chaining calls.
+    pub fn serialize_as_map(&mut self) -> &mut Self {
+        self.struct_actions.serialize_as_map = true;
         self
     }
 }

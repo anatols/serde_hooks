@@ -1,19 +1,21 @@
 use std::borrow::Cow;
 
-use serde::ser::{SerializeStruct, SerializeStructVariant};
+use serde::ser::{SerializeMap, SerializeStruct, SerializeStructVariant};
 use serde::{Serialize, Serializer};
 
 use crate::ser::HooksError;
 use crate::{Case, Value};
 
 use super::{
-    PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks,
+    PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks, StructActions,
     StructFieldAction, StructFieldActions,
 };
 
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum Wrap<S: Serializer> {
     SerializeStruct(S::SerializeStruct),
     SerializeStructVariant(S::SerializeStructVariant),
+    SerializeAsMap(S::SerializeMap),
 }
 
 impl<S: Serializer> Wrap<S> {
@@ -24,6 +26,7 @@ impl<S: Serializer> Wrap<S> {
         match self {
             Wrap::SerializeStruct(s) => s.serialize_field(key, value),
             Wrap::SerializeStructVariant(s) => s.serialize_field(key, value),
+            Wrap::SerializeAsMap(s) => s.serialize_entry(key, value),
         }
     }
 
@@ -31,6 +34,7 @@ impl<S: Serializer> Wrap<S> {
         match self {
             Wrap::SerializeStruct(s) => s.skip_field(key),
             Wrap::SerializeStructVariant(s) => s.skip_field(key),
+            Wrap::SerializeAsMap(_) => Ok(()),
         }
     }
 
@@ -38,6 +42,7 @@ impl<S: Serializer> Wrap<S> {
         match self {
             Wrap::SerializeStruct(s) => s.end(),
             Wrap::SerializeStructVariant(s) => s.end(),
+            Wrap::SerializeAsMap(s) => s.end(),
         }
     }
 }
@@ -47,7 +52,7 @@ pub(crate) enum SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHo
     Wrapped {
         wrap: Wrap<S>,
         hooks: &'h H,
-        actions: StructFieldActions,
+        field_actions: StructFieldActions,
         have_retains: bool,
         rename_all: Option<Case>,
     },
@@ -57,42 +62,93 @@ pub(crate) enum SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHo
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S, H> {
-    pub(super) fn new_wrapped_struct(
-        serialize_struct: S::SerializeStruct,
+    pub(super) fn serialize_struct(
+        serializer: S,
+        name: &'static str,
+        len: usize,
         hooks: &'h H,
-        actions: StructFieldActions,
-    ) -> Self {
-        Self::Wrapped {
-            wrap: Wrap::SerializeStruct(serialize_struct),
-            hooks,
-            have_retains: actions
-                .iter()
-                .any(|a| matches!(a, StructFieldAction::Retain(_))),
-            rename_all: actions.iter().rev().find_map(|a| match a {
-                StructFieldAction::RenameAll(case) => Some(*case),
-                _ => None,
-            }),
-            actions,
+        struct_actions: StructActions,
+        field_actions: StructFieldActions,
+    ) -> Result<Self, S::Error> {
+        if should_serialize_as_map(&struct_actions, &field_actions) {
+            return Self::serialize_struct_as_map(
+                serializer,
+                len,
+                hooks,
+                struct_actions,
+                field_actions,
+            );
         }
+
+        Ok(Self::Wrapped {
+            wrap: Wrap::SerializeStruct(serializer.serialize_struct(name, len)?),
+            hooks,
+            have_retains: have_retains(&field_actions),
+            rename_all: rename_all(&field_actions),
+            field_actions,
+        })
     }
 
-    pub(super) fn new_wrapped_struct_variant(
-        serialize_struct_variant: S::SerializeStructVariant,
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn serialize_struct_variant(
+        serializer: S,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
         hooks: &'h H,
-        actions: StructFieldActions,
-    ) -> Self {
-        Self::Wrapped {
-            wrap: Wrap::SerializeStructVariant(serialize_struct_variant),
-            hooks,
-            have_retains: actions
-                .iter()
-                .any(|a| matches!(a, StructFieldAction::Retain(_))),
-            rename_all: actions.iter().rev().find_map(|a| match a {
-                StructFieldAction::RenameAll(case) => Some(*case),
-                _ => None,
-            }),
-            actions,
+        struct_actions: StructActions,
+        field_actions: StructFieldActions,
+    ) -> Result<Self, S::Error> {
+        if should_serialize_as_map(&struct_actions, &field_actions) {
+            return Self::serialize_struct_as_map(
+                serializer,
+                len,
+                hooks,
+                struct_actions,
+                field_actions,
+            );
         }
+
+        Ok(Self::Wrapped {
+            wrap: Wrap::SerializeStructVariant(serializer.serialize_struct_variant(
+                name,
+                variant_index,
+                variant,
+                len,
+            )?),
+            hooks,
+            have_retains: have_retains(&field_actions),
+            rename_all: rename_all(&field_actions),
+            field_actions,
+        })
+    }
+
+    fn serialize_struct_as_map(
+        serializer: S,
+        len: usize,
+        hooks: &'h H,
+        _struct_actions: StructActions,
+        field_actions: StructFieldActions,
+    ) -> Result<Self, S::Error> {
+        // If there's any potential of fields being skipped or added, don't feed map length hint
+        // to the serializer.
+        let len = if field_actions
+            .iter()
+            .any(|a| matches!(a, StructFieldAction::Retain(_) | StructFieldAction::Skip(_)))
+        {
+            None
+        } else {
+            Some(len)
+        };
+
+        Ok(Self::Wrapped {
+            wrap: Wrap::SerializeAsMap(serializer.serialize_map(len)?),
+            hooks,
+            have_retains: have_retains(&field_actions),
+            rename_all: rename_all(&field_actions),
+            field_actions,
+        })
     }
 
     pub(super) fn new_skipped(end_result: Result<S::Ok, S::Error>) -> Self {
@@ -108,7 +164,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
             SerializeStructWrapper::Wrapped {
                 wrap,
                 hooks,
-                actions,
+                field_actions: actions,
                 have_retains,
                 rename_all,
             } => {
@@ -190,7 +246,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
             SerializeStructWrapper::Wrapped {
                 wrap,
                 hooks,
-                actions,
+                field_actions: actions,
                 ..
             } => {
                 if let Some(a) = actions.into_iter().next() {
@@ -253,4 +309,24 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStructVa
     fn end(self) -> Result<Self::Ok, Self::Error> {
         self.end()
     }
+}
+
+fn should_serialize_as_map(
+    struct_actions: &StructActions,
+    _field_actions: &StructFieldActions,
+) -> bool {
+    struct_actions.serialize_as_map
+}
+
+fn have_retains(field_actions: &StructFieldActions) -> bool {
+    field_actions
+        .iter()
+        .any(|a| matches!(a, StructFieldAction::Retain(_)))
+}
+
+fn rename_all(field_actions: &StructFieldActions) -> Option<Case> {
+    field_actions.iter().rev().find_map(|a| match a {
+        StructFieldAction::RenameAll(case) => Some(*case),
+        _ => None,
+    })
 }

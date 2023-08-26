@@ -344,3 +344,31 @@ fn test_error() {
     assert!(serde_json::to_string(&ser::hook(&Payload::new(), &hooks)).is_err());
     assert!(hooks.on_error_called.get());
 }
+
+#[test]
+fn test_serialize_as_map() {
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
+            st.serialize_as_map();
+        }
+
+        fn on_struct_variant(
+            &self,
+            _path: &Path,
+            _ev: &mut ser::EnumVariantScope,
+            st: &mut ser::StructScope,
+        ) {
+            st.serialize_as_map();
+        }
+    }
+
+    let payload = Payload::new();
+
+    // using RON in this test because it distinguishes between structs and maps
+    let ron_original = ron::to_string(&payload).unwrap();
+    assert_eq!(ron_original, "(foo:42,bar:Some('a'),baz:\"sample\",e:StructVariant(foo:21,bar:Some('b'),baz:\"example\"))");
+
+    let ron = ron::to_string(&ser::hook(&payload, &Hooks)).unwrap();
+    assert_eq!(ron, "{\"foo\":42,\"bar\":Some('a'),\"baz\":\"sample\",\"e\":{\"foo\":21,\"bar\":Some('b'),\"baz\":\"example\"}}");
+}
