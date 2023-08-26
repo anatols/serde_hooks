@@ -13,6 +13,7 @@ use super::{
 };
 
 #[allow(clippy::enum_variant_names)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum Wrap<'h, S: Serializer, H: SerializerWrapperHooks> {
     SerializeStruct(S::SerializeStruct),
     SerializeStructVariant(S::SerializeStructVariant),
