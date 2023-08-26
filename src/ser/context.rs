@@ -300,8 +300,9 @@ fn test_into_static_str() {
 
     // Owned values are cached
     let baz_str = "baz";
-    let first_instance: &'static str = context.into_static_str(Cow::Owned(baz_str.to_string()));
-    assert_refs_ne(baz_str, first_instance);
+    let cached_str: &'static str = context.into_static_str(Cow::Owned(baz_str.to_string()));
+    assert_refs_ne(baz_str, cached_str);
+    assert_eq!(baz_str, cached_str);
 
     // Static strings are still pass-through, even if we have cached the exact same
     // owned one
