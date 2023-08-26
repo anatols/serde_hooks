@@ -1,3 +1,5 @@
+#![doc = include_str!("../../docs/ser.md")]
+
 use std::borrow::Cow;
 
 use serde::{Serialize, Serializer};
