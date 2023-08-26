@@ -163,7 +163,17 @@ You can reuse the hooks value for multiple serializations. There are two special
 
 ## Path
 
-TODO
+Every hook will receive a path argument. It is a path within the structure of serialized data.
+
+A path is a list of segments, each segment representing an element of a
+nested container (e.g. a field of a struct, a map entry or a sequence element).
+
+For simplicity, paths can be [cast to strings](crate::Path::borrow_str). In this case they will resemble 
+element access you'd write in Rust.
+
+Knowing a path allows you to apply different actions to different parts of your serialized data.
+
+See documentation for [`Path`](crate::Path) for more information.
 
 ## Static strings
 
