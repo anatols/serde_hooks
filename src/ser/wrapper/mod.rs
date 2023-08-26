@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use serde::{Serialize, Serializer};
 use smallvec::SmallVec;
 
+mod flatten;
 mod map;
 mod seq;
 mod serializer;
@@ -85,6 +86,7 @@ pub(crate) enum StructFieldAction {
     Rename(Cow<'static, str>, Cow<'static, str>),
     ReplaceValue(Cow<'static, str>, StaticValue),
     RenameAll(Case),
+    Flatten(Cow<'static, str>),
 }
 
 pub(crate) type StructFieldActions = SmallVec<[StructFieldAction; 8]>;

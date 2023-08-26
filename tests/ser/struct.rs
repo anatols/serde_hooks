@@ -384,3 +384,68 @@ fn test_serialize_as_map() {
 
     assert!(hooks.on_map_called.get());
 }
+
+#[test]
+fn test_flatten() {
+    #[derive(Serialize, Default)]
+    struct Outer {
+        outer_field: (),
+        inner: Inner,
+    }
+
+    #[derive(Serialize, Default)]
+    struct Inner {
+        inner_field: (),
+    }
+
+    struct Hooks {
+        struct_hook_called_for_inner_struct: Cell<bool>,
+    }
+
+    impl ser::Hooks for Hooks {
+        fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
+            if path.borrow_str().is_empty() {
+                st.flatten_field("inner");
+            }
+
+            if st.struct_name() == "Inner" {
+                self.struct_hook_called_for_inner_struct.set(true);
+            }
+        }
+    }
+
+    let payload = Outer::default();
+    let hooks = Hooks {
+        struct_hook_called_for_inner_struct: Cell::new(false),
+    };
+
+    // using RON in this test because it distinguishes between structs and maps
+    let ron_original = ron::to_string(&payload).unwrap();
+    assert_eq!(ron_original, "(outer_field:(),inner:(inner_field:()))");
+
+    let ron = ron::to_string(&ser::hook(&payload, &hooks)).unwrap();
+    assert_eq!(ron, "{\"outer_field\":(),\"inner_field\":()}");
+    assert!(hooks.struct_hook_called_for_inner_struct.get());
+}
+
+#[test]
+fn test_flatten_unsupported_data_type() {
+    #[derive(Serialize, Default)]
+    struct Outer {
+        outer_field: (),
+        inner: i8,
+    }
+
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
+            st.flatten_field("inner");
+        }
+    }
+
+    let err = ron::to_string(&ser::hook(&Outer::default(), &Hooks)).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Error at path 'inner': cannot flatten unsupported data type \"i8\""
+    );
+}

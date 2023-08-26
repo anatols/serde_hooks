@@ -6,6 +6,7 @@ use serde::{Serialize, Serializer};
 use crate::ser::HooksError;
 use crate::{Case, Value};
 
+use super::flatten::{FlattenError, FlattenSerializer};
 use super::map::SerializeMapWrapper;
 use super::{
     PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks, StructActions,
@@ -135,10 +136,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
     ) -> Result<Self, S::Error> {
         // If there's any potential of fields being skipped or added, don't feed map length hint
         // to the serializer.
-        let len = if field_actions
-            .iter()
-            .any(|a| matches!(a, StructFieldAction::Retain(_) | StructFieldAction::Skip(_)))
-        {
+        let len = if can_change_in_length(&field_actions) {
             None
         } else {
             Some(len)
@@ -181,6 +179,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                 let mut retain_field = false;
                 let mut skip_field = false;
                 let mut replacement_value: Option<Value> = None;
+                let mut flatten = false;
 
                 actions.retain_mut(|a| match a {
                     StructFieldAction::Retain(n) => {
@@ -213,6 +212,13 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                         !matches
                     }
                     StructFieldAction::RenameAll(_) => false,
+                    StructFieldAction::Flatten(n) => {
+                        let matches = field_key == *n;
+                        if matches {
+                            flatten = true;
+                        }
+                        !matches
+                    }
                 });
 
                 if *have_retains && !retain_field {
@@ -239,7 +245,25 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                     wrap.serialize_field(hooks.make_static_str(field_key), &replacement_value)
                 } else {
                     let s = SerializableWithHooks::new(value, *hooks, SerializableKind::Value);
-                    wrap.serialize_field(hooks.make_static_str(field_key), &s)
+
+                    if flatten {
+                        let serialize_map = match wrap {
+                            Wrap::SerializeAsMap(m) => m,
+                            _ => unreachable!(),
+                        };
+
+                        let flatten_serializer = FlattenSerializer::new(serialize_map);
+                        match s.serialize(flatten_serializer) {
+                            Ok(r) => Ok(r),
+                            Err(FlattenError::SerializerError(e)) => Err(e),
+                            Err(FlattenError::UnsupportedDataType(data_type)) => hooks
+                                .on_error::<S>(HooksError::CannotFlattenUnsupportedDataType(
+                                    data_type,
+                                )),
+                        }
+                    } else {
+                        wrap.serialize_field(hooks.make_static_str(field_key), &s)
+                    }
                 };
 
                 hooks.path_pop();
@@ -262,7 +286,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                         StructFieldAction::Retain(f)
                         | StructFieldAction::Skip(f)
                         | StructFieldAction::Rename(f, _)
-                        | StructFieldAction::ReplaceValue(f, _) => {
+                        | StructFieldAction::ReplaceValue(f, _)
+                        | StructFieldAction::Flatten(f) => {
                             hooks.on_error::<S>(HooksError::FieldNotFound(f))?
                         }
                         StructFieldAction::RenameAll(_) => {}
@@ -321,9 +346,23 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeStructVa
 
 fn should_serialize_as_map(
     struct_actions: &StructActions,
-    _field_actions: &StructFieldActions,
+    field_actions: &StructFieldActions,
 ) -> bool {
     struct_actions.serialize_as_map
+        || field_actions
+            .iter()
+            .any(|a| matches!(a, StructFieldAction::Flatten(_)))
+}
+
+fn can_change_in_length(field_actions: &StructFieldActions) -> bool {
+    field_actions.iter().any(|a| {
+        matches!(
+            a,
+            StructFieldAction::Retain(_)
+                | StructFieldAction::Skip(_)
+                | StructFieldAction::Flatten(_)
+        )
+    })
 }
 
 fn have_retains(field_actions: &StructFieldActions) -> bool {

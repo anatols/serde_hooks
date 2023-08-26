@@ -80,6 +80,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
     type SerializeStruct = SerializeStructWrapper<'h, S, H>;
     type SerializeStructVariant = SerializeStructWrapper<'h, S, H>;
 
+    //TODO support for i128/u128
     value_serialize!(serialize_bool, Bool, v: bool);
     value_serialize!(serialize_i8, I8, v: i8);
     value_serialize!(serialize_i16, I16, v: i16);

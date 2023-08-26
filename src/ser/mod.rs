@@ -255,6 +255,10 @@ pub enum HooksError {
     /// This index was not found in the sequence.
     #[error("index \"{0}\" not found")]
     IndexNotFound(usize),
+
+    /// Flattening was attempted on a struct field that does not contain a struct or a map.
+    #[error("cannot flatten unsupported data type \"{0}\"")]
+    CannotFlattenUnsupportedDataType(&'static str),
 }
 
 /// Attach serialization hooks to a serializable value.

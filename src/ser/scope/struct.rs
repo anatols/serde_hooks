@@ -5,7 +5,6 @@ use crate::{
     Case, StaticValue,
 };
 
-//TODO add support for flatten
 //TODO add rename_field_case
 //TODO document errors
 
@@ -155,15 +154,16 @@ impl StructScope {
 
     /// Serialize this struct as a map.
     ///
-    /// Some serializers, e.g. `serde_json`, do not distinguish between maps
-    /// and structs and represent them the same way in the serialized output.
-    /// Others however, like `ron`, do represent structs and maps differently.
-    ///
     /// Calling this method makes the struct to be fed to the serializer as a map
     /// with string keys.
     ///
+    /// Some serializers, e.g. `serde_json`, do not distinguish between maps
+    /// and structs and represent them the same way in the serialized output.
+    /// Others however, like `ron`, do represent structs and maps differently.
+    /// Some might not support maps where they expect structs.
+    ///
     /// You will receive an [`on_map`](crate::ser::Hooks::on_map) hook callback
-    /// for each struct that is serialized as a map.
+    /// at the same path before this struct is serialized as a map.
     ///
     /// If you apply modifying actions to both the struct scope here, and to map scope
     /// in `on_map` hook, the actions applied to the struct scope will have precedence.
@@ -172,6 +172,28 @@ impl StructScope {
     /// Returns `self` to allow chaining calls.
     pub fn serialize_as_map(&mut self) -> &mut Self {
         self.struct_actions.serialize_as_map = true;
+        self
+    }
+
+    /// Flatten a field into this structure.
+    ///
+    /// Runtime equivalent to `#[serde(flatten)]`.
+    ///
+    /// The field value must be of struct, struct variant or map type, otherwise
+    /// [`CannotFlattenUnsupportedDataType`](crate::ser::HooksError::CannotFlattenUnsupportedDataType)
+    /// is produced.
+    ///
+    /// This removes one level of hierarchy for the field, adding the struct fields
+    /// (map entries) from the field value straight into this struct.
+    ///
+    /// Flattening any field causes this struct to be serialized as a map with
+    /// no length hint to the serializer. Some serializers do not support this.
+    /// See [`serialize_as_map`](Self::serialize_as_map) for more details and implications.
+    ///
+    /// Returns `self` to allow chaining calls.
+    pub fn flatten_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
+        self.field_actions
+            .push(StructFieldAction::Flatten(key.into()));
         self
     }
 }
