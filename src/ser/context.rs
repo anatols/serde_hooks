@@ -227,7 +227,7 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         (variant_scope.into_actions(), seq_scope.into_actions())
     }
 
-    fn into_static_str(&self, key: std::borrow::Cow<'static, str>) -> &'static str {
+    fn make_static_str(&self, key: std::borrow::Cow<'static, str>) -> &'static str {
         match key {
             Cow::Borrowed(static_key) => static_key,
             Cow::Owned(string_key) => {
@@ -275,7 +275,7 @@ struct ContextInner<'h, H: Hooks> {
 }
 
 #[test]
-fn test_into_static_str() {
+fn test_make_static_str() {
     // Comparing references here, not content
     fn assert_refs_eq(left: &str, right: &str) {
         assert_eq!(left as *const _, right as *const _);
@@ -291,25 +291,25 @@ fn test_into_static_str() {
 
     // Static strings are just pass-through
     let foo_str: &'static str = "foo";
-    assert_refs_eq(context.into_static_str(Cow::Borrowed(foo_str)), foo_str);
+    assert_refs_eq(context.make_static_str(Cow::Borrowed(foo_str)), foo_str);
     let bar_str: &'static str = "bar";
-    assert_refs_eq(context.into_static_str(Cow::Borrowed(bar_str)), bar_str);
+    assert_refs_eq(context.make_static_str(Cow::Borrowed(bar_str)), bar_str);
 
     // Pass-through, even if the value is repeating
     let bar_str_again: &'static str = &"_bar"[1..]; // slice shenanigans, to stop compiler from reusing strs.
     assert_refs_ne(bar_str, bar_str_again);
     assert_refs_eq(
-        context.into_static_str(Cow::Borrowed(bar_str_again)),
+        context.make_static_str(Cow::Borrowed(bar_str_again)),
         bar_str_again,
     );
 
     // Owned values are cached
     let baz_str = "baz";
-    let cached_str: &'static str = context.into_static_str(Cow::Owned(baz_str.to_string()));
+    let cached_str: &'static str = context.make_static_str(Cow::Owned(baz_str.to_string()));
     assert_refs_ne(baz_str, cached_str);
     assert_eq!(baz_str, cached_str);
 
     // Static strings are still pass-through, even if we have cached the exact same
     // owned one
-    assert_refs_eq(context.into_static_str(Cow::Borrowed(baz_str)), baz_str);
+    assert_refs_eq(context.make_static_str(Cow::Borrowed(baz_str)), baz_str);
 }

@@ -76,7 +76,7 @@ pub(crate) trait SerializerWrapperHooks {
         len: usize,
     ) -> (VariantActions, SeqElementActions);
 
-    fn into_static_str(&self, key: Cow<'static, str>) -> &'static str;
+    fn make_static_str(&self, key: Cow<'static, str>) -> &'static str;
 }
 
 pub(crate) enum StructFieldAction {

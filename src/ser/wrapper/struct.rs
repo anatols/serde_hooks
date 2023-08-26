@@ -236,10 +236,10 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                 let res = if skip_field {
                     wrap.skip_field(key)
                 } else if let Some(replacement_value) = replacement_value {
-                    wrap.serialize_field(hooks.into_static_str(field_key), &replacement_value)
+                    wrap.serialize_field(hooks.make_static_str(field_key), &replacement_value)
                 } else {
                     let s = SerializableWithHooks::new(value, *hooks, SerializableKind::Value);
-                    wrap.serialize_field(hooks.into_static_str(field_key), &s)
+                    wrap.serialize_field(hooks.make_static_str(field_key), &s)
                 };
 
                 hooks.path_pop();

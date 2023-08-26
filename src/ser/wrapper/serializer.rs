@@ -425,9 +425,9 @@ fn apply_variant_actions(
     }
 
     (
-        hooks.into_static_str(new_name.unwrap_or(name.into())),
+        hooks.make_static_str(new_name.unwrap_or(name.into())),
         new_variant_index.unwrap_or(variant_index),
-        hooks.into_static_str(new_variant.unwrap_or(variant.into())),
+        hooks.make_static_str(new_variant.unwrap_or(variant.into())),
     )
 }
 
