@@ -159,8 +159,15 @@ impl StructScope {
     /// and structs and represent them the same way in the serialized output.
     /// Others however, like `ron`, do represent structs and maps differently.
     ///
-    /// Calling this method makes the struct to be fed to the serializer as map
+    /// Calling this method makes the struct to be fed to the serializer as a map
     /// with string keys.
+    ///
+    /// You will receive an [`on_map`](crate::ser::Hooks::on_map) hook callback
+    /// for each struct that is serialized as a map.
+    ///
+    /// If you apply modifying actions to both the struct scope here, and to map scope
+    /// in `on_map` hook, the actions applied to the struct scope will have precedence.
+    /// It generally would lead to confusing effects and is not recommended. Pick one.
     ///
     /// Returns `self` to allow chaining calls.
     pub fn serialize_as_map(&mut self) -> &mut Self {

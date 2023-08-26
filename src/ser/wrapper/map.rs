@@ -28,20 +28,36 @@ pub(crate) enum SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H> {
     //TODO refactor this constructor the same way it's done in SerializeStructWrapper
-    pub(super) fn new_wrapped(
-        serialize_map: S::SerializeMap,
+    pub(super) fn serialize_map(
+        serializer: S,
+        len: Option<usize>,
         hooks: &'h H,
         actions: MapEntryActions,
-    ) -> Self {
-        Self::Wrapped {
-            serialize_map,
+    ) -> Result<Self, S::Error> {
+        // If there's any potential of entries being skipped or added, don't feed map length hint
+        // to the serializer.
+        let len = len.and_then(|len| {
+            if actions.iter().any(|a| {
+                matches!(
+                    a,
+                    MapEntryAction::Retain(_) | MapEntryAction::Skip(_) | MapEntryAction::Add(_, _)
+                )
+            }) {
+                None
+            } else {
+                Some(len)
+            }
+        });
+
+        Ok(Self::Wrapped {
+            serialize_map: serializer.serialize_map(len)?,
             hooks,
             have_retains: actions
                 .iter()
                 .any(|a| matches!(a, MapEntryAction::Retain(_))),
             actions,
             entry_index: Cell::new(0),
-        }
+        })
     }
 
     pub(super) fn new_skipped(end_result: Result<S::Ok, S::Error>) -> Self {

@@ -306,11 +306,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             ValueAction::ValueReplaced(r) => Ok(SerializeMapWrapper::new_skipped(r)),
             ValueAction::ContinueSerialization(s) => {
                 let actions = self.hooks.on_map(len);
-                //TODO analyze actions instead of relying on actions.is_empty()
-                s.serialize_map(if actions.is_empty() { len } else { None })
-                    .map(|serialize_map| {
-                        SerializeMapWrapper::new_wrapped(serialize_map, self.hooks, actions)
-                    })
+                SerializeMapWrapper::serialize_map(s, len, self.hooks, actions)
             }
         }
     }

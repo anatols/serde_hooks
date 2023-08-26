@@ -6,19 +6,20 @@ use serde::{Serialize, Serializer};
 use crate::ser::HooksError;
 use crate::{Case, Value};
 
+use super::map::SerializeMapWrapper;
 use super::{
     PathSegment, SerializableKind, SerializableWithHooks, SerializerWrapperHooks, StructActions,
     StructFieldAction, StructFieldActions,
 };
 
 #[allow(clippy::enum_variant_names)]
-pub(crate) enum Wrap<S: Serializer> {
+pub(crate) enum Wrap<'h, S: Serializer, H: SerializerWrapperHooks> {
     SerializeStruct(S::SerializeStruct),
     SerializeStructVariant(S::SerializeStructVariant),
-    SerializeAsMap(S::SerializeMap),
+    SerializeAsMap(SerializeMapWrapper<'h, S, H>),
 }
 
-impl<S: Serializer> Wrap<S> {
+impl<'h, S: Serializer, H: SerializerWrapperHooks> Wrap<'h, S, H> {
     fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), S::Error>
     where
         T: Serialize,
@@ -50,7 +51,7 @@ impl<S: Serializer> Wrap<S> {
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum SerializeStructWrapper<'h, S: Serializer, H: SerializerWrapperHooks> {
     Wrapped {
-        wrap: Wrap<S>,
+        wrap: Wrap<'h, S, H>,
         hooks: &'h H,
         field_actions: StructFieldActions,
         have_retains: bool,
@@ -142,8 +143,14 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
             Some(len)
         };
 
+        let map_entry_actions = hooks.on_map(len);
         Ok(Self::Wrapped {
-            wrap: Wrap::SerializeAsMap(serializer.serialize_map(len)?),
+            wrap: Wrap::SerializeAsMap(SerializeMapWrapper::serialize_map(
+                serializer,
+                len,
+                hooks,
+                map_entry_actions,
+            )?),
             hooks,
             have_retains: have_retains(&field_actions),
             rename_all: rename_all(&field_actions),
