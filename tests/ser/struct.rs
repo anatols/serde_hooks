@@ -11,30 +11,30 @@ enum Enum {
     #[allow(dead_code)]
     Faux,
     StructVariant {
-        foo: i32,
-        bar: Option<char>,
-        baz: String,
+        p1: i32,
+        p2: Option<char>,
+        p3: String,
     },
 }
 
 #[derive(Serialize)]
 struct Payload {
-    foo: i32,
-    bar: Option<char>,
-    baz: String,
+    p1: i32,
+    p2: Option<char>,
+    p3: String,
     e: Enum,
 }
 
 impl Payload {
     fn new() -> Self {
         Payload {
-            foo: 42,
-            bar: Some('a'),
-            baz: "sample".into(),
+            p1: 42,
+            p2: Some('a'),
+            p3: "sample".into(),
             e: Enum::StructVariant {
-                foo: 21,
-                bar: Some('b'),
-                baz: "example".into(),
+                p1: 21,
+                p2: Some('b'),
+                p3: "example".into(),
             },
         }
     }
@@ -121,7 +121,7 @@ fn test_skip_field() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
-            st.skip_field("foo").skip_field("baz");
+            st.skip_field("p1").skip_field("p3");
         }
 
         fn on_struct_variant(
@@ -130,14 +130,14 @@ fn test_skip_field() {
             _ev: &mut ser::EnumVariantScope,
             st: &mut ser::StructScope,
         ) {
-            st.skip_field("foo").skip_field("baz");
+            st.skip_field("p1").skip_field("p3");
         }
     }
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
     assert_eq!(
         json,
-        "{\"bar\":\"a\",\"e\":{\"StructVariant\":{\"bar\":\"b\"}}}"
+        "{\"p2\":\"a\",\"e\":{\"StructVariant\":{\"p2\":\"b\"}}}"
     );
 }
 
@@ -146,12 +146,12 @@ fn test_retain_field() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
-            st.retain_field("foo").retain_field("bar");
+            st.retain_field("p1").retain_field("p2");
         }
     }
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(json, r#"{"foo":42,"bar":"a"}"#);
+    assert_eq!(json, r#"{"p1":42,"p2":"a"}"#);
 }
 
 #[test]
@@ -170,15 +170,12 @@ fn test_retain_field_in_struct_variant() {
             _ev: &mut ser::EnumVariantScope,
             st: &mut ser::StructScope,
         ) {
-            st.retain_field("foo").retain_field("bar");
+            st.retain_field("p1").retain_field("p2");
         }
     }
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(
-        json,
-        "{\"e\":{\"StructVariant\":{\"foo\":21,\"bar\":\"b\"}}}"
-    );
+    assert_eq!(json, "{\"e\":{\"StructVariant\":{\"p1\":21,\"p2\":\"b\"}}}");
 }
 
 #[test]
@@ -187,9 +184,9 @@ fn test_rename_field() {
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
             if path.segments().is_empty() {
-                st.rename_field("foo", "not_foo")
-                    .rename_field("bar", format!("bar_{}", 42))
-                    .rename_field("baz", "baz2")
+                st.rename_field("p1", "not_foo")
+                    .rename_field("p2", format!("bar_{}", 42))
+                    .rename_field("p3", "baz2")
                     .rename_field("baz2", "baz3");
             }
         }
@@ -200,9 +197,9 @@ fn test_rename_field() {
             _ev: &mut ser::EnumVariantScope,
             st: &mut ser::StructScope,
         ) {
-            st.rename_field("foo", "not_foo_either")
-                .rename_field("bar", format!("bar_{}", 21))
-                .rename_field("baz", "baz4")
+            st.rename_field("p1", "not_foo_either")
+                .rename_field("p2", format!("bar_{}", 21))
+                .rename_field("p3", "baz4")
                 .rename_field("baz4", "baz5");
         }
     }
@@ -267,7 +264,7 @@ fn test_replace_value() {
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
             if path.segments().is_empty() {
-                st.replace_value("baz", -15i16);
+                st.replace_value("p3", -15i16);
             }
         }
 
@@ -277,12 +274,12 @@ fn test_replace_value() {
             _ev: &mut ser::EnumVariantScope,
             st: &mut ser::StructScope,
         ) {
-            st.replace_value("baz", 'x');
+            st.replace_value("p3", 'x');
         }
     }
 
     let json = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap();
-    assert_eq!(json, "{\"foo\":42,\"bar\":\"a\",\"baz\":-15,\"e\":{\"StructVariant\":{\"foo\":21,\"bar\":\"b\",\"baz\":\"x\"}}}");
+    assert_eq!(json, "{\"p1\":42,\"p2\":\"a\",\"p3\":-15,\"e\":{\"StructVariant\":{\"p1\":21,\"p2\":\"b\",\"p3\":\"x\"}}}");
 }
 
 #[test]
@@ -290,12 +287,12 @@ fn test_struct_replace_value_unserializable() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
-            st.replace_value("baz", StaticValue::NewtypeStruct("STRUCT"));
+            st.replace_value("p3", StaticValue::NewtypeStruct("STRUCT"));
         }
     }
 
     let err = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap_err();
-    assert_eq!(err.to_string(), "Error at path 'baz': value is not serializable: newtype STRUCT cannot be represented fully in Value");
+    assert_eq!(err.to_string(), "Error at path 'p3': value is not serializable: newtype STRUCT cannot be represented fully in Value");
 }
 
 #[test]
@@ -308,12 +305,12 @@ fn test_struct_variant_replace_value_unserializable() {
             _ev: &mut ser::EnumVariantScope,
             st: &mut ser::StructScope,
         ) {
-            st.replace_value("baz", StaticValue::NewtypeStruct("STRUCT"));
+            st.replace_value("p3", StaticValue::NewtypeStruct("STRUCT"));
         }
     }
 
     let err = serde_json::to_string(&ser::hook(&Payload::new(), &Hooks)).unwrap_err();
-    assert_eq!(err.to_string(), "Error at path 'e.baz': value is not serializable: newtype STRUCT cannot be represented fully in Value");
+    assert_eq!(err.to_string(), "Error at path 'e.p3': value is not serializable: newtype STRUCT cannot be represented fully in Value");
 }
 
 #[test]
@@ -376,10 +373,13 @@ fn test_serialize_as_map() {
 
     // using RON in this test because it distinguishes between structs and maps
     let ron_original = ron::to_string(&payload).unwrap();
-    assert_eq!(ron_original, "(foo:42,bar:Some('a'),baz:\"sample\",e:StructVariant(foo:21,bar:Some('b'),baz:\"example\"))");
+    assert_eq!(
+        ron_original,
+        "(p1:42,p2:Some('a'),p3:\"sample\",e:StructVariant(p1:21,p2:Some('b'),p3:\"example\"))"
+    );
 
     let ron = ron::to_string(&ser::hook(&payload, &hooks)).unwrap();
-    assert_eq!(ron, "{\"foo\":42,\"bar\":Some('a'),\"baz\":\"sample\",\"e\":{\"foo\":21,\"bar\":Some('b'),\"baz\":\"example\"}}");
+    assert_eq!(ron, "{\"p1\":42,\"p2\":Some('a'),\"p3\":\"sample\",\"e\":{\"p1\":21,\"p2\":Some('b'),\"p3\":\"example\"}}");
 
     assert!(hooks.on_map_called.get());
 }
