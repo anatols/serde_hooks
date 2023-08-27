@@ -1,5 +1,23 @@
-//TODO explain caveats of case conversion in runtime: running after serde, detecting word boundaries
 /// Case convention for case-renaming actions.
+///
+/// During serialization, if you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
+/// `#[serde(rename_all=...)]`, those will be applied at compile time. This means any case
+/// conversions you perform at runtime will need to operate on the results of serde's renames.
+///
+/// This can lead to unsolvable corner cases. For example, imagine you've got
+/// an enum renamed like this:
+/// ```
+/// # use serde::Serialize;
+/// #[derive(Serialize)]
+/// #[serde(rename_all = "UPPERCASE")]
+/// enum Reason {
+///     JustInCase,
+/// }
+/// ```
+/// At runtime, the `JustInCase` variant will be serialized as `"JUSTINCASE"`. Trying to change
+/// its case convention to snake case will yield `"justincase"` instead of maybe expected
+/// `"just_in_case"`. This happens because at runtime there is no way to figure out word
+/// boundaries after serde has transformed everything to uppercase.
 #[derive(Copy, Clone)]
 pub enum Case {
     /// `lowercase`
