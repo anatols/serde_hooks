@@ -39,8 +39,8 @@ impl Path {
         self.segments.push(segment);
     }
 
-    pub(crate) fn pop_segment(&mut self) {
-        self.segments.pop().expect("unbalanced pop_segment");
+    pub(crate) fn pop_segment(&mut self) -> PathSegment {
+        let res = self.segments.pop().expect("unbalanced pop_segment");
 
         let mut str_cache = self.str_cache.borrow_mut();
 
@@ -57,6 +57,8 @@ impl Path {
             }
             str_cache.written_lengths.pop();
         }
+
+        res
     }
 
     /// Returns path segments.

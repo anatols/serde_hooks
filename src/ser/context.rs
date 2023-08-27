@@ -58,8 +58,8 @@ impl<H: Hooks> SerializerWrapperHooks for Context<'_, H> {
         self.inner.borrow_mut().path.push_segment(segment);
     }
 
-    fn path_pop(&self) {
-        self.inner.borrow_mut().path.pop_segment();
+    fn path_pop(&self) -> PathSegment {
+        self.inner.borrow_mut().path.pop_segment()
     }
 
     fn on_map(&self, map_len: Option<usize>) -> MapEntryActions {

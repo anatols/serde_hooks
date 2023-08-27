@@ -6,7 +6,7 @@ use serde::{ser::Impossible, Serialize, Serializer};
 
 use crate::path::PathMapKey;
 use crate::ser::{HooksError, MapKeySelector};
-use crate::Value;
+use crate::{PathSegment, Value};
 
 use super::{
     MapEntryAction, MapEntryActions, SerializableKind, SerializableWithHooks,
@@ -21,6 +21,7 @@ pub(crate) enum SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks
         actions: MapEntryActions,
         have_retains: bool,
         entry_index: Cell<usize>,
+        str_key_buffer: String, // reusable String for &str type keys to reduce allocations
     },
     Skipped {
         end_result: Result<S::Ok, S::Error>,
@@ -57,6 +58,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H>
                 .any(|a| matches!(a, MapEntryAction::Retain(_))),
             actions,
             entry_index: Cell::new(0),
+            str_key_buffer: String::default(),
         })
     }
 
@@ -110,8 +112,9 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                 actions,
                 have_retains,
                 entry_index,
+                str_key_buffer,
             } => {
-                let mut map_key_value = MapKeyCapture::capture(key);
+                let mut map_key_value = MapKeyCapture::capture(key, std::mem::take(str_key_buffer));
 
                 let mut retain_entry = false;
                 let mut skip_entry = false;
@@ -208,7 +211,17 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                     )
                 };
 
-                hooks.path_pop();
+                let segment = hooks.path_pop();
+
+                // Trying to reclaim the reusable string buffer from the popped path segment
+                if let PathSegment::MapEntry(PathMapKey {
+                    value: Value::Str(Cow::Owned(mut s)),
+                    ..
+                }) = segment
+                {
+                    std::mem::swap(str_key_buffer, &mut s)
+                }
+
                 entry_index.replace(entry_index.get() + 1);
                 res
             }
@@ -270,15 +283,17 @@ impl serde::ser::Error for MapKeyCaptureError<'_> {
 }
 
 struct MapKeyCapture<'b> {
+    str_buffer: String,
     marker: PhantomData<&'b ()>,
 }
 
 impl MapKeyCapture<'_> {
-    fn capture<'b, K>(key: &K) -> Value<'b>
+    fn capture<'b, K>(key: &K, str_buffer: String) -> Value<'b>
     where
         K: Serialize + ?Sized,
     {
         match key.serialize(MapKeyCapture {
+            str_buffer,
             marker: PhantomData,
         }) {
             Ok(v) => v,                      // primitive keys via Ok
@@ -354,13 +369,11 @@ impl<'b> Serializer for MapKeyCapture<'b> {
         Ok(Value::Char(v))
     }
 
-    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        Ok(
-            // Cloning the string here for each map key is suboptimal,
-            // but since it comes with an unknown constraint there is no safe
-            // way of capturing it and pushing as a path segment.
-            Value::Str(v.to_owned().into()),
-        )
+    fn serialize_str(mut self, v: &str) -> Result<Self::Ok, Self::Error> {
+        // Putting the value in a reusable buffer to avoid certain allocation per key
+        self.str_buffer.clear();
+        self.str_buffer.push_str(v);
+        Ok(Value::Str(Cow::Owned(self.str_buffer)))
     }
 
     fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {

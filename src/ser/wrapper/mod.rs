@@ -17,7 +17,7 @@ pub(crate) use serializer::SerializerWrapper;
 pub(crate) trait SerializerWrapperHooks {
     fn path_push(&self, segment: PathSegment);
 
-    fn path_pop(&self);
+    fn path_pop(&self) -> PathSegment;
 
     fn on_error<S: Serializer>(&self, error: HooksError) -> Result<(), S::Error>;
 
