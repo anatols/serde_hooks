@@ -6,9 +6,10 @@ use crate::{
     StaticValue,
 };
 
+//TODO document everything
+//TODO tests for everything
 //TODO add support for rename_key_case and rename_all_keys_case
 //TODO add support for add_entry_before, add_entry_after, push_entry
-//TODO add support for flatten
 pub struct MapScope {
     map_len: Option<usize>,
     actions: MapEntryActions,

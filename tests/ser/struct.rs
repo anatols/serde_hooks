@@ -328,7 +328,6 @@ fn test_error() {
         }
 
         fn on_scope_error(&self, path: &Path, err: &mut ser::ErrorScope) {
-            //TODO use mock to ensure this is called
             assert_eq!(&*path.borrow_str(), "");
             assert_eq!(
                 *err.error(),

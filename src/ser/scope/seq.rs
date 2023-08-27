@@ -3,8 +3,6 @@ use crate::{
     StaticValue,
 };
 
-//TODO add support for insert before, insert after, push back
-
 /// Inspect and modify sequences and tuple elements.
 ///
 /// See [`Hooks::on_seq`](crate::ser::Hooks::on_seq),
