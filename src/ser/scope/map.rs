@@ -125,10 +125,10 @@ pub enum MapKeySelector {
 }
 
 impl MapKeySelector {
-    pub(crate) fn matches_path_key(&self, key: &PathMapKey) -> bool {
+    pub(crate) fn matches_path_key(&self, value: &crate::Value, index: usize) -> bool {
         match self {
-            MapKeySelector::ByValue(v) => key.value == *v,
-            MapKeySelector::ByIndex(i) => key.index == *i,
+            MapKeySelector::ByValue(v) => value == v,
+            MapKeySelector::ByIndex(i) => index == *i,
         }
     }
 }
