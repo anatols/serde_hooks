@@ -1,8 +1,12 @@
 # Must have before the initial release
 
 - Write a readme.
+
 - Publish on crates.io / docs.rs.
+
 - Address remaining TODOs in code. None must remain.
+
+- Set up github pipeline to build, test, clippy, check fmt, generate docs.
 
 
 # Ideas & wishlist
