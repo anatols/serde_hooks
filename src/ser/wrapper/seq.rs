@@ -55,61 +55,90 @@ pub(crate) enum SerializeSeqWrapper<'h, S: Serializer, H: SerializerWrapperHooks
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H> {
-    //TODO refactor constructors here the same way it's done in SerializeStructWrapper
-    pub(super) fn new_wrapped_seq(
-        serialize_seq: S::SerializeSeq,
+    pub(super) fn serialize_seq(
+        serializer: S,
+        len: Option<usize>,
         hooks: &'h H,
         actions: SeqElementActions,
-    ) -> Self {
-        Self::Wrapped {
-            wrap: Wrap::SerializeSeq(serialize_seq),
+    ) -> Result<Self, S::Error> {
+        Ok(Self::Wrapped {
+            wrap: Wrap::SerializeSeq(
+                serializer.serialize_seq(len_hint_with_actions(len, &actions))?,
+            ),
             hooks,
-            have_retains: actions_have_retains(&actions),
+            have_retains: have_retains(&actions),
             actions,
             current_index: 0,
-        }
+        })
     }
 
-    pub(super) fn new_wrapped_tuple(
-        serialize_tuple: S::SerializeTuple,
+    pub(super) fn serialize_tuple(
+        serializer: S,
+        len: usize,
         hooks: &'h H,
         actions: SeqElementActions,
-    ) -> Self {
-        Self::Wrapped {
-            wrap: Wrap::SerializeTuple(serialize_tuple),
+    ) -> Result<Self, S::Error> {
+        // If length may be changed, we force serialization of this tuple as seq.
+        if len_hint_with_actions(Some(len), &actions).is_none() {
+            return Self::serialize_seq(serializer, None, hooks, actions);
+        }
+
+        Ok(Self::Wrapped {
+            wrap: Wrap::SerializeTuple(serializer.serialize_tuple(len)?),
             hooks,
-            have_retains: actions_have_retains(&actions),
+            have_retains: have_retains(&actions),
             actions,
             current_index: 0,
-        }
+        })
     }
 
-    pub(super) fn new_wrapped_tuple_struct(
-        serialize_tuple_struct: S::SerializeTupleStruct,
+    pub(super) fn serialize_tuple_struct(
+        serializer: S,
+        name: &'static str,
+        len: usize,
         hooks: &'h H,
         actions: SeqElementActions,
-    ) -> Self {
-        Self::Wrapped {
-            wrap: Wrap::SerializeTupleStruct(serialize_tuple_struct),
+    ) -> Result<Self, S::Error> {
+        // If length may be changed, we force serialization of this tuple as seq.
+        if len_hint_with_actions(Some(len), &actions).is_none() {
+            return Self::serialize_seq(serializer, None, hooks, actions);
+        }
+
+        Ok(Self::Wrapped {
+            wrap: Wrap::SerializeTupleStruct(serializer.serialize_tuple_struct(name, len)?),
             hooks,
-            have_retains: actions_have_retains(&actions),
+            have_retains: have_retains(&actions),
             actions,
             current_index: 0,
-        }
+        })
     }
 
-    pub(super) fn new_wrapped_tuple_variant(
-        serialize_tuple_variant: S::SerializeTupleVariant,
+    pub(super) fn serialize_tuple_variant(
+        serializer: S,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
         hooks: &'h H,
         actions: SeqElementActions,
-    ) -> Self {
-        Self::Wrapped {
-            wrap: Wrap::SerializeTupleVariant(serialize_tuple_variant),
+    ) -> Result<Self, S::Error> {
+        // If length may be changed, we force serialization of this tuple as seq.
+        if len_hint_with_actions(Some(len), &actions).is_none() {
+            return Self::serialize_seq(serializer, None, hooks, actions);
+        }
+
+        Ok(Self::Wrapped {
+            wrap: Wrap::SerializeTupleVariant(serializer.serialize_tuple_variant(
+                name,
+                variant_index,
+                variant,
+                len,
+            )?),
             hooks,
-            have_retains: actions_have_retains(&actions),
+            have_retains: have_retains(&actions),
             actions,
             current_index: 0,
-        }
+        })
     }
 
     pub(super) fn new_skipped(end_result: Result<S::Ok, S::Error>) -> Self {
@@ -211,12 +240,6 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeSeqWrapper<'h, S, H>
     }
 }
 
-fn actions_have_retains(actions: &SeqElementActions) -> bool {
-    actions
-        .iter()
-        .any(|a| matches!(a, SeqElementAction::Retain(_)))
-}
-
 impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeSeq
     for SerializeSeqWrapper<'h, S, H>
 {
@@ -287,4 +310,23 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeTupleVar
     fn end(self) -> Result<Self::Ok, Self::Error> {
         self.end()
     }
+}
+
+fn have_retains(actions: &SeqElementActions) -> bool {
+    actions
+        .iter()
+        .any(|a| matches!(a, SeqElementAction::Retain(_)))
+}
+
+fn len_hint_with_actions(len: Option<usize>, actions: &SeqElementActions) -> Option<usize> {
+    len.and_then(|len| {
+        if actions
+            .iter()
+            .any(|a| matches!(a, SeqElementAction::Retain(_) | SeqElementAction::Skip(_)))
+        {
+            None
+        } else {
+            Some(len)
+        }
+    })
 }

@@ -28,7 +28,6 @@ pub(crate) enum SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks
 }
 
 impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H> {
-    //TODO refactor this constructor the same way it's done in SerializeStructWrapper
     pub(super) fn serialize_map(
         serializer: S,
         len: Option<usize>,

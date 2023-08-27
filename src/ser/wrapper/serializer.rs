@@ -5,10 +5,7 @@ use serde::{Serialize, Serializer};
 use super::map::SerializeMapWrapper;
 use super::r#struct::SerializeStructWrapper;
 use super::seq::SerializeSeqWrapper;
-use super::{
-    SeqElementAction, SeqElementActions, SerializableKind, SerializerWrapperHooks, ValueAction,
-    VariantAction, VariantActions,
-};
+use super::{SerializableKind, SerializerWrapperHooks, ValueAction, VariantAction, VariantActions};
 use crate::Case;
 
 pub(crate) struct SerializerWrapper<'h, S, H: SerializerWrapperHooks> {
@@ -184,10 +181,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             ValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
             ValueAction::ContinueSerialization(s) => {
                 let actions = self.hooks.on_seq(len);
-                s.serialize_seq(if actions.is_empty() { len } else { None })
-                    .map(|serialize_seq| {
-                        SerializeSeqWrapper::new_wrapped_seq(serialize_seq, self.hooks, actions)
-                    })
+                SerializeSeqWrapper::serialize_seq(s, len, self.hooks, actions)
             }
         }
     }
@@ -200,21 +194,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             ValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
             ValueAction::ContinueSerialization(s) => {
                 let seq_actions = self.hooks.on_tuple(len);
-                if seq_actions_may_change_length(&seq_actions) {
-                    // If length may be changed, we force serialization of this tuple
-                    // as seq.
-                    s.serialize_seq(None).map(|serialize_seq| {
-                        SerializeSeqWrapper::new_wrapped_seq(serialize_seq, self.hooks, seq_actions)
-                    })
-                } else {
-                    s.serialize_tuple(len).map(|serialize_tuple| {
-                        SerializeSeqWrapper::new_wrapped_tuple(
-                            serialize_tuple,
-                            self.hooks,
-                            seq_actions,
-                        )
-                    })
-                }
+                SerializeSeqWrapper::serialize_tuple(s, len, self.hooks, seq_actions)
             }
         }
     }
@@ -232,22 +212,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
             ValueAction::ValueReplaced(r) => Ok(SerializeSeqWrapper::new_skipped(r)),
             ValueAction::ContinueSerialization(s) => {
                 let seq_actions = self.hooks.on_tuple_struct(name, len);
-                if seq_actions_may_change_length(&seq_actions) {
-                    // If length may be changed, we force serialization of this tuple
-                    // as seq.
-                    s.serialize_seq(None).map(|serialize_seq| {
-                        SerializeSeqWrapper::new_wrapped_seq(serialize_seq, self.hooks, seq_actions)
-                    })
-                } else {
-                    s.serialize_tuple_struct(name, len)
-                        .map(|serialize_tuple_struct| {
-                            SerializeSeqWrapper::new_wrapped_tuple_struct(
-                                serialize_tuple_struct,
-                                self.hooks,
-                                seq_actions,
-                            )
-                        })
-                }
+                SerializeSeqWrapper::serialize_tuple_struct(s, name, len, self.hooks, seq_actions)
             }
         }
     }
@@ -272,30 +237,24 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> Serializer for SerializerWrap
                 let (variant_actions, seq_actions) =
                     self.hooks
                         .on_tuple_variant(name, variant_index, variant, len);
-                if seq_actions_may_change_length(&seq_actions) {
-                    // If length may be changed, we force serialization of this tuple
-                    // as seq.
-                    s.serialize_seq(None).map(|serialize_seq| {
-                        SerializeSeqWrapper::new_wrapped_seq(serialize_seq, self.hooks, seq_actions)
-                    })
-                } else {
-                    let (name, variant_index, variant) = apply_variant_actions(
-                        name,
-                        variant_index,
-                        variant,
-                        variant_actions,
-                        self.hooks,
-                    );
 
-                    s.serialize_tuple_variant(name, variant_index, variant, len)
-                        .map(|serialize_tuple_variant| {
-                            SerializeSeqWrapper::new_wrapped_tuple_variant(
-                                serialize_tuple_variant,
-                                self.hooks,
-                                seq_actions,
-                            )
-                        })
-                }
+                let (name, variant_index, variant) = apply_variant_actions(
+                    name,
+                    variant_index,
+                    variant,
+                    variant_actions,
+                    self.hooks,
+                );
+
+                SerializeSeqWrapper::serialize_tuple_variant(
+                    s,
+                    name,
+                    variant_index,
+                    variant,
+                    len,
+                    self.hooks,
+                    seq_actions,
+                )
             }
         }
     }
@@ -431,10 +390,4 @@ fn apply_variant_actions(
         new_variant_index.unwrap_or(variant_index),
         hooks.make_static_str(new_variant.unwrap_or(variant.into())),
     )
-}
-
-fn seq_actions_may_change_length(actions: &SeqElementActions) -> bool {
-    actions
-        .iter()
-        .any(|a| matches!(a, SeqElementAction::Retain(_) | SeqElementAction::Skip(_)))
 }
