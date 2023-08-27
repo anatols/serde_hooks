@@ -40,10 +40,12 @@ struct Payload<'s, 'b> {
     val_i16: i16,
     val_i32: i32,
     val_i64: i64,
+    val_i128: i128,
     val_u8: u8,
     val_u16: u16,
     val_u32: u32,
     val_u64: u64,
+    val_u128: u128,
     val_f32: f32,
     val_f64: f64,
     val_char: char,
@@ -89,10 +91,12 @@ impl<'s, 'b> Payload<'s, 'b> {
             val_i16: -16,
             val_i32: -32,
             val_i64: -64,
+            val_i128: -128,
             val_u8: 8,
             val_u16: 16,
             val_u32: 32,
             val_u64: 64,
+            val_u128: 128,
             val_f32: 32.0,
             val_f64: 64.0,
             val_char: 'x',
@@ -162,10 +166,12 @@ fn test_values() {
                 | ("val_i16", Value::I16(-16))
                 | ("val_i32", Value::I32(-32))
                 | ("val_i64", Value::I64(-64))
+                | ("val_i128", Value::I128(-128))
                 | ("val_u8", Value::U8(8))
                 | ("val_u16", Value::U16(16))
                 | ("val_u32", Value::U32(32))
                 | ("val_u64", Value::U64(64))
+                | ("val_u128", Value::U128(128))
                 | ("val_char", Value::Char('x'))
                 | ("val_str", Value::Str(Cow::Borrowed("str")))
                 | ("val_str_static", Value::Str(Cow::Borrowed("str_static")))
@@ -289,10 +295,12 @@ fn test_replace_in_struct() {
         val_i16: R val_i16
         val_i32: R val_i32
         val_i64: R val_i64
+        val_i128: R val_i128
         val_u8: R val_u8
         val_u16: R val_u16
         val_u32: R val_u32
         val_u64: R val_u64
+        val_u128: R val_u128
         val_f32: R val_f32
         val_f64: R val_f64
         val_char: R val_char

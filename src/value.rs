@@ -21,6 +21,9 @@ pub enum Value<'v> {
     /// `i64` value
     I64(i64),
 
+    /// `i128` value
+    I128(i128),
+
     /// `u8` value
     U8(u8),
 
@@ -32,6 +35,9 @@ pub enum Value<'v> {
 
     /// `u64` value
     U64(u64),
+
+    /// `u128` value
+    U128(u128),
 
     /// `f32` value
     F32(f32),
@@ -216,10 +222,12 @@ impl Display for Value<'_> {
             Value::I16(v) => Display::fmt(v, f),
             Value::I32(v) => Display::fmt(v, f),
             Value::I64(v) => Display::fmt(v, f),
+            Value::I128(v) => Display::fmt(v, f),
             Value::U8(v) => Display::fmt(v, f),
             Value::U16(v) => Display::fmt(v, f),
             Value::U32(v) => Display::fmt(v, f),
             Value::U64(v) => Display::fmt(v, f),
+            Value::U128(v) => Display::fmt(v, f),
             Value::F32(v) => Display::fmt(v, f),
             Value::F64(v) => Display::fmt(v, f),
             Value::Char(c) => f.write_fmt(format_args!("'{c}'")),

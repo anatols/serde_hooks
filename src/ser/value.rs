@@ -17,10 +17,12 @@ impl Serialize for Value<'_> {
             Value::I16(v) => v.serialize(serializer),
             Value::I32(v) => v.serialize(serializer),
             Value::I64(v) => v.serialize(serializer),
+            Value::I128(v) => v.serialize(serializer),
             Value::U8(v) => v.serialize(serializer),
             Value::U16(v) => v.serialize(serializer),
             Value::U32(v) => v.serialize(serializer),
             Value::U64(v) => v.serialize(serializer),
+            Value::U128(v) => v.serialize(serializer),
             Value::F32(v) => v.serialize(serializer),
             Value::F64(v) => v.serialize(serializer),
             Value::Char(v) => v.serialize(serializer),
@@ -89,6 +91,10 @@ impl Value<'_> {
                 Ok(())
             }
 
+            fn serialize_i128(self, _v: i128) -> Result<Self::Ok, Self::Error> {
+                Ok(())
+            }
+
             fn serialize_u8(self, _v: u8) -> Result<Self::Ok, Self::Error> {
                 Ok(())
             }
@@ -102,6 +108,10 @@ impl Value<'_> {
             }
 
             fn serialize_u64(self, _v: u64) -> Result<Self::Ok, Self::Error> {
+                Ok(())
+            }
+
+            fn serialize_u128(self, _v: u128) -> Result<Self::Ok, Self::Error> {
                 Ok(())
             }
 

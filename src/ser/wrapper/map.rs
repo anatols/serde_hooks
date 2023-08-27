@@ -315,6 +315,10 @@ impl Serializer for MapKeyCapture {
         Ok(PathMapKey::new(self.entry_index, Value::I64(v)))
     }
 
+    fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
+        Ok(PathMapKey::new(self.entry_index, Value::I128(v)))
+    }
+
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
         Ok(PathMapKey::new(self.entry_index, Value::U8(v)))
     }
@@ -329,6 +333,10 @@ impl Serializer for MapKeyCapture {
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
         Ok(PathMapKey::new(self.entry_index, Value::U64(v)))
+    }
+
+    fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
+        Ok(PathMapKey::new(self.entry_index, Value::U128(v)))
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
