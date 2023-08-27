@@ -88,10 +88,25 @@ impl Path {
     /// optimized to reduce allocations and string formatting for individual
     /// path segments.
     ///
-    /// This method returns a borrowed Ref for the cached string representation.
-    /// The borrowed Ref must be dropped at the end of the hook otherwise `Path`
-    /// will panic later on new updates.
-    pub fn borrow_str(&self) -> Ref<'_, str> {
+    /// This method returns a borrowed `Ref` for the cached string representation.
+    /// The borrowed `Ref` must be dropped at the end of the hook otherwise `Path`
+    /// will panic later when serialization goes on.
+    ///
+    /// You will need to deref the returned `Ref` if you want to compare it against
+    /// another string:
+    ///
+    /// ```
+    /// # use serde_hooks::{ser, Path};
+    /// struct Hooks;
+    /// impl ser::Hooks for Hooks {
+    ///     fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
+    ///         if *path.borrow_str() == "somewhere.some_day" { // note the deref * in front of path
+    ///              //...
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn borrow_str(&self) -> Ref<'_, String> {
         {
             let mut str_cache = self.str_cache.borrow_mut();
             while str_cache.written_lengths.len() < self.segments.len() {
@@ -115,7 +130,7 @@ impl Path {
             }
         }
 
-        Ref::map(self.str_cache.borrow(), |c| c.cache.as_str())
+        Ref::map(self.str_cache.borrow(), |c| &c.cache)
     }
 }
 

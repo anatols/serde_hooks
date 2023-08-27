@@ -19,5 +19,3 @@
 - Flatten for sequences.
 
 - Support for insert before, insert after, push back in sequences.
-
-- Make it possible somehow to compare path to string literals w/o the weird deref-ref syntax (`&*path.borrow_str()`).

@@ -20,7 +20,7 @@ fn rename_struct_fields() {
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &serde_hooks::Path, st: &mut serde_hooks::ser::StructScope) {
             st.rename_all_fields_case("camelCase"); // all struct fields to camelCase by default
-            if &*path.borrow_str() == "channels" {
+            if *path.borrow_str() == "channels" {
                 st.rename_field("sms", "SMS"); // special treatment of an abbreviation
             }
         }

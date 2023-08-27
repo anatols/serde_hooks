@@ -59,7 +59,7 @@ fn test_struct_traversing() {
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
             let path = path.borrow_str();
-            self.fields_to_expect.borrow_mut().remove(&*path);
+            self.fields_to_expect.borrow_mut().remove(path.as_str());
 
             match path.as_ref() {
                 "" => {
@@ -85,7 +85,7 @@ fn test_struct_traversing() {
             st: &mut ser::StructScope,
         ) {
             let path = path.borrow_str();
-            self.fields_to_expect.borrow_mut().remove(&*path);
+            self.fields_to_expect.borrow_mut().remove(path.as_str());
 
             match path.as_ref() {
                 "payload.e" => {
@@ -325,7 +325,7 @@ fn test_error() {
         }
 
         fn on_scope_error(&self, path: &Path, err: &mut ser::ErrorScope) {
-            assert_eq!(&*path.borrow_str(), "");
+            assert_eq!(*path.borrow_str(), "");
             assert_eq!(
                 *err.error(),
                 ser::HooksError::FieldNotFound("invalid".into())

@@ -149,7 +149,7 @@ fn test_values() {
     impl ser::Hooks for Hooks {
         fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
             let path = path.borrow_str();
-            self.fields_to_expect.borrow_mut().remove(&*path);
+            self.fields_to_expect.borrow_mut().remove(path.as_str());
             use serde_hooks::Value;
 
             // Note, all owned values will be received here as borrowed, just

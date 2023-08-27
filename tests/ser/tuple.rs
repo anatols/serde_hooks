@@ -37,7 +37,7 @@ fn test_tuple_traversing() {
     impl ser::Hooks for Hooks {
         fn on_tuple(&self, path: &Path, tpl: &mut ser::TupleScope, seq: &mut ser::SeqScope) {
             let path = path.borrow_str();
-            self.tuples_to_expect.borrow_mut().remove(&*path);
+            self.tuples_to_expect.borrow_mut().remove(path.as_str());
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
@@ -72,7 +72,9 @@ fn test_tuple_traversing() {
             seq: &mut ser::SeqScope,
         ) {
             let path = path.borrow_str();
-            self.tuple_variants_to_expect.borrow_mut().remove(&*path);
+            self.tuple_variants_to_expect
+                .borrow_mut()
+                .remove(path.as_str());
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
@@ -94,7 +96,9 @@ fn test_tuple_traversing() {
             seq: &mut ser::SeqScope,
         ) {
             let path = path.borrow_str();
-            self.tuple_structs_to_expect.borrow_mut().remove(&*path);
+            self.tuple_structs_to_expect
+                .borrow_mut()
+                .remove(path.as_str());
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
