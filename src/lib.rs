@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![doc = include_str!("../README.md")]
 #![doc = include_str!("../docs/lib.md")]
 
 /// Serialization with runtime hooks.

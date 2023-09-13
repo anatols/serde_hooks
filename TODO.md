@@ -1,7 +1,5 @@
 # Must have before the initial release
 
-- Write a readme.
-
 - Publish on crates.io / docs.rs.
 
 - Address remaining TODOs in code. None must remain.
