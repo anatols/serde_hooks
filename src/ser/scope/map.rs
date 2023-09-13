@@ -1,7 +1,6 @@
 use std::{borrow::Cow, fmt::Display};
 
 use crate::{
-    path::PathMapKey,
     ser::wrapper::{MapEntryAction, MapEntryActions},
     StaticValue,
 };
