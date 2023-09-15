@@ -10,7 +10,7 @@ mod variant;
 
 pub use end::EndScope;
 pub use error::ErrorScope;
-pub use map::{MapKeySelector, MapScope};
+pub use map::{MapInsertLocation, MapKeySelector, MapScope};
 pub use r#struct::StructScope;
 pub use seq::SeqScope;
 pub use start::StartScope;

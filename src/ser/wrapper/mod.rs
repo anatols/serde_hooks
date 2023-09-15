@@ -10,6 +10,7 @@ mod serializer;
 mod r#struct;
 
 use super::{HooksError, MapKeySelector};
+use crate::ser::MapInsertLocation;
 use crate::{path::PathSegment, Case, StaticValue};
 
 pub(crate) use serializer::SerializerWrapper;
@@ -98,9 +99,8 @@ pub(crate) struct StructActions {
 pub(crate) enum MapEntryAction {
     Retain(MapKeySelector),
     Skip(MapKeySelector),
-    Add(MapKeySelector, Option<StaticValue>),
-    Replace(MapKeySelector, Option<StaticValue>),
-    ReplaceOrAdd(MapKeySelector, Option<StaticValue>),
+    Insert(StaticValue, StaticValue, MapInsertLocation),
+    ReplaceValue(MapKeySelector, StaticValue),
     ReplaceKey(MapKeySelector, StaticValue),
 }
 

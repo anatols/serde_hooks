@@ -124,12 +124,10 @@ impl StructScope {
     ///
     /// Primitive values are copied, and are later fed to the serializer instead of the original
     /// struct field values.
-    ///
     /// For compound values, only metadata is stored, therefore it's not possible to
     /// serialize the actual values from the contents of [`StaticValue`]. Passing in a
     /// compound value here would result in an
     /// [`HooksError::ValueNotSerializable`](crate::ser::HooksError::ValueNotSerializable) error.
-    ///
     /// The trick to replace a compound value is to replace it in this scope with a primitive one
     /// (e.g. a unit), subscribe to `on_value` hook, and replace the value there again with the
     /// compound one.

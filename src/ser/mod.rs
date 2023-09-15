@@ -10,8 +10,8 @@ mod value;
 mod wrapper;
 
 pub use scope::{
-    EndScope, EnumVariantScope, ErrorScope, MapKeyScope, MapKeySelector, MapScope, SeqScope,
-    StartScope, StructScope, TupleScope, TupleStructScope, ValueScope,
+    EndScope, EnumVariantScope, ErrorScope, MapInsertLocation, MapKeyScope, MapKeySelector,
+    MapScope, SeqScope, StartScope, StructScope, TupleScope, TupleStructScope, ValueScope,
 };
 
 use context::SerializableWithContext;
@@ -224,10 +224,6 @@ pub trait Hooks {
 /// See [`Hooks::on_scope_error`] for more info on handling recoverable errors.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 pub enum HooksError {
-    /// Cannot add this key to the map, the key is already present in the map.
-    #[error("cannot add key {0}, the key is already present in the map")]
-    KeyAlreadyPresent(MapKeySelector),
-
     /// Cannot add a map entry by specifying an index, please specify key value.
     ///
     /// This error occurs when trying to add a map entry, but specifying an index

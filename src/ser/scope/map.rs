@@ -5,10 +5,8 @@ use crate::{
     StaticValue,
 };
 
-//TODO document everything
 //TODO tests for everything
 //TODO add support for rename_key_case and rename_all_keys_case
-//TODO add support for add_entry_before, add_entry_after, push_entry
 
 /// Inspect maps and modify their contents.
 ///
@@ -45,7 +43,7 @@ impl MapScope {
     /// This is similar to `#[serde(skip)]` or `#[serde(skip_serializing)]`, but
     /// works for maps.
     ///
-    /// At the moment this hook is called it is impossible to predict which
+    /// At the moment the hook is called it is impossible to predict which
     /// fields will actually be fed to the serializer afterwards. Therefore, it's not
     /// possible to correctly adjust the length hint. The underlying serializer will thus
     /// be given `None` as the map length hint if you call this method. Some serializers
@@ -63,10 +61,10 @@ impl MapScope {
     /// all not retained entries are skipped. You can retain multiple entries by
     /// calling this method multiple times.
     ///
-    /// You can see this as a 'whitelist' counterpart of [`skip_entry`].
+    /// You can see this as a 'whitelist' counterpart of [`skip_entry`](Self::skip_entry).
     ///
-    /// At the moment this hook is called it is impossible to predict which
-    /// fields will actually be fed to the serializer afterwards. Therefore, it's not
+    /// At the moment the hook is called it is impossible to predict which
+    /// entries will actually be fed to the serializer afterwards. Therefore, it's not
     /// possible to correctly adjust the length hint. The underlying serializer will thus
     /// be given `None` as the map length hint if you call this method. Some serializers
     /// might not support this.
@@ -77,38 +75,84 @@ impl MapScope {
         self
     }
 
-    pub fn add_entry(
+    /// Insert a new entry at a given location during serialization.
+    ///
+    /// There is no check for key uniqueness. If you insert an entry with a key that already
+    /// exists, it will still be passed on to the serializer. Some serializers might not
+    /// support this.
+    ///
+    /// Primitive keys and values are copied, and are later fed to the serializer.
+    /// For compound values, only metadata is stored, therefore it's not possible to
+    /// serialize the actual values from the contents of [`StaticValue`]. Passing in a
+    /// compound value in `key` or `value` here would result in an
+    /// [`HooksError::ValueNotSerializable`](crate::ser::HooksError::ValueNotSerializable) error.
+    /// The trick to insert a compound value is to first insert a primitive one
+    /// (e.g. a unit), subscribe to `on_value` hook, and replace the value there again with the
+    /// compound one.
+    ///
+    /// At the moment the hook is called it is impossible to predict which
+    /// fields will actually be fed to the serializer afterwards. Therefore, it's not
+    /// possible to correctly adjust the length hint. The underlying serializer will thus
+    /// be given `None` as the map length hint if you call this method. Some serializers
+    /// might not support this.
+    ///
+    /// Will produce [`HooksError::KeyNotFound`](crate::ser::HooksError::KeyNotFound) error
+    /// if the insertion location refers to a key that does not occur during serialization.
+    ///
+    /// Returns `self` to allow chaining calls.
+    pub fn insert_entry(
         &mut self,
-        key: impl Into<MapKeySelector>,
+        key: impl Into<StaticValue>,
         value: impl Into<StaticValue>,
+        location: MapInsertLocation,
     ) -> &mut Self {
         self.actions
-            .push(MapEntryAction::Add(key.into(), Some(value.into())));
+            .push(MapEntryAction::Insert(key.into(), value.into(), location));
         self
     }
 
-    pub fn add_or_replace_entry(
-        &mut self,
-        key: impl Into<MapKeySelector>,
-        new_value: impl Into<StaticValue>,
-    ) -> &mut Self {
-        self.actions.push(MapEntryAction::ReplaceOrAdd(
-            key.into(),
-            Some(new_value.into()),
-        ));
-        self
-    }
-
+    /// Replace value of an existing entry.
+    ///
+    /// Primitive values are copied, and are later fed to the serializer.
+    /// For compound values, only metadata is stored, therefore it's not possible to
+    /// serialize the actual values from the contents of [`StaticValue`]. Passing in a
+    /// compound value here would result in an
+    /// [`HooksError::ValueNotSerializable`](crate::ser::HooksError::ValueNotSerializable) error.
+    /// If you want to use a compound value as a replacement, subscribe to `on_value` hook, and
+    /// replace the value there.
+    ///
+    /// Will produce [`HooksError::KeyNotFound`](crate::ser::HooksError::KeyNotFound) error
+    /// if the key does not occur during serialization.
+    ///
+    /// Returns `self` to allow chaining calls.
     pub fn replace_value(
         &mut self,
         key: impl Into<MapKeySelector>,
         new_value: impl Into<StaticValue>,
     ) -> &mut Self {
         self.actions
-            .push(MapEntryAction::Replace(key.into(), Some(new_value.into())));
+            .push(MapEntryAction::ReplaceValue(key.into(), new_value.into()));
         self
     }
 
+    /// Replace key of an existing entry.
+    ///
+    /// There is no check for key uniqueness. If you use a key that is used for some other entry,
+    /// it will still be passed on to the serializer. Some serializers might not
+    /// support this.
+    ///
+    /// Primitive keys are copied, and are later fed to the serializer.
+    /// For compound keys, only metadata is stored, therefore it's not possible to
+    /// serialize the actual values from the contents of [`StaticValue`]. Passing in a
+    /// compound key here would result in an
+    /// [`HooksError::ValueNotSerializable`](crate::ser::HooksError::ValueNotSerializable) error.
+    /// If you want to use a compound value as a replacement, subscribe to `on_value` hook, and
+    /// replace the value there.
+    ///
+    /// Will produce [`HooksError::KeyNotFound`](crate::ser::HooksError::KeyNotFound) error
+    /// if the key does not occur during serialization.
+    ///
+    /// Returns `self` to allow chaining calls.
     pub fn replace_key(
         &mut self,
         key: impl Into<MapKeySelector>,
@@ -119,6 +163,11 @@ impl MapScope {
         self
     }
 
+    /// Rename key of an existing entry.
+    ///
+    /// Same effect as replacing a key with a new string key. See [`replace_key`](Self::replace_key).
+    ///
+    /// Returns `self` to allow chaining calls.
     pub fn rename_key(
         &mut self,
         key: impl Into<MapKeySelector>,
@@ -132,9 +181,20 @@ impl MapScope {
     }
 }
 
+/// Selector for map entries.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MapKeySelector {
+    /// Select entry by matching key.
+    ///
+    /// For compound values only metadata is stored in [`StaticValue`] and then matched
+    /// against the serialized keys. This means that if your map is keyed by compound keys
+    /// (tuples, structs etc.), there is no way to reliably select a concrete key.
     ByValue(StaticValue),
+
+    /// Select entry by it's sequential index during serialization.
+    ///
+    /// This is the position in the order in which the original map entries are fed into the
+    /// serializer. Selecting by index obviously only makes sense for ordered maps.
     ByIndex(usize),
 }
 
@@ -166,4 +226,16 @@ impl From<usize> for MapKeySelector {
     fn from(value: usize) -> Self {
         MapKeySelector::ByIndex(value)
     }
+}
+
+/// Location in the map where an entry is inserted.
+pub enum MapInsertLocation {
+    /// Insert the entry before another entry specified by the selector.
+    Before(MapKeySelector),
+
+    /// Insert the entry after another entry specified by the selector.
+    After(MapKeySelector),
+
+    /// Insert the entry to the very end of the map.
+    End,
 }
