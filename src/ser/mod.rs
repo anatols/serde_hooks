@@ -1,6 +1,10 @@
 #![doc = include_str!("../../docs/ser.md")]
 
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    cell::{Cell, RefCell},
+    collections::HashMap,
+};
 
 use serde::{Serialize, Serializer};
 
@@ -15,6 +19,7 @@ pub use scope::{
 };
 
 use context::SerializableWithContext;
+use smallvec::SmallVec;
 
 use crate::Path;
 
@@ -315,4 +320,185 @@ pub fn hook<'s, 'h: 's, T: Serialize + ?Sized, H: Hooks>(
     hooks: &'h H,
 ) -> impl Serialize + 's {
     SerializableWithContext::new(serializable, hooks)
+}
+
+pub trait HookPath<'s, T: Serialize + ?Sized> {
+    fn on_struct(self, path: impl Into<Cow<'static, str>>) -> StructHookBuilder<'s, T>;
+}
+
+struct PathActions<'s> {
+    // struct_actions: wrapper::StructActions,
+    // struct_field_actions: wrapper::StructFieldActions,
+    callback: RefCell<Box<dyn FnMut(&Path, &mut StructScope) + 's>>,
+}
+
+struct HookBuilderInner<'s, T: Serialize + ?Sized> {
+    serializable: &'s T,
+    path_actions: SmallVec<[(Option<Cow<'static, str>>, PathActions<'s>); 8]>,
+}
+
+impl<'s, T: Serialize + ?Sized> Serialize for HookBuilderInner<'s, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        //TODO build hooks & actually serialize
+        // struct BuiltHooks<'a, 's> {
+        //     path_actions: &'a SmallVec<[(Option<Cow<'static, str>>, PathActions<'s>); 8]>,
+        // }
+
+        // impl Hooks for BuiltHooks<'_, '_> {
+        //     fn on_struct(&self, path: &Path, st: &mut StructScope) {
+        //         for (path_selector, path_actions) in self.path_actions {
+        //             //TODO apply actions to scope if path matches
+
+        //             (path_actions.callback.borrow_mut())(path, st);
+        //         }
+        //     }
+        // }
+        // let hooks = BuiltHooks {
+        //     path_actions: &self.path_actions,
+        // };
+
+        struct NoopExternalHooks;
+        impl Hooks for NoopExternalHooks {}
+        static NOOP_HOOKS: NoopExternalHooks = NoopExternalHooks;
+        let hooks = hooks_with_actions(&self.path_actions, &NOOP_HOOKS);
+
+        let s = SerializableWithContext::new(self.serializable, &hooks);
+        s.serialize(serializer)
+    }
+}
+
+impl<'s, T: Serialize + ?Sized> HookPath<'s, T> for HookBuilderInner<'s, T> {
+    fn on_struct(self, path: impl Into<Cow<'static, str>>) -> StructHookBuilder<'s, T> {
+        //TODO push context
+        StructHookBuilder { inner: self }
+    }
+}
+
+pub struct HookBuilder<'s, T: Serialize + ?Sized> {
+    inner: HookBuilderInner<'s, T>,
+}
+
+impl<'s, T: Serialize + ?Sized> StructHookBuilder<'s, T> {
+    fn call_hooks<'h: 's, H: Hooks>(self, hooks: &'h H) -> HookBuilderWithHooks<'s, 'h, T, H> {
+        HookBuilderWithHooks {
+            inner: self.inner,
+            external_hooks: hooks,
+        }
+    }
+}
+
+impl<T: Serialize + ?Sized> Serialize for HookBuilder<'_, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.inner.serialize(serializer)
+    }
+}
+
+impl<'s, T: Serialize + ?Sized> HookPath<'s, T> for HookBuilder<'s, T> {
+    fn on_struct(self, path: impl Into<Cow<'static, str>>) -> StructHookBuilder<'s, T> {
+        self.inner.on_struct(path)
+    }
+}
+
+pub struct StructHookBuilder<'s, T: Serialize + ?Sized> {
+    inner: HookBuilderInner<'s, T>,
+}
+
+impl<'s, T: Serialize + ?Sized> StructHookBuilder<'s, T> {
+    fn rename_all_fields_case(self) -> Self {
+        //TODO
+        self
+    }
+
+    //fn on_struct(&self, path: &Path, st: &mut StructScope) {}
+
+    fn call(mut self, callback: impl FnMut(&Path, &mut StructScope) + 's) -> Self {
+        //TODO
+        self.inner.path_actions.push((
+            None,
+            PathActions {
+                callback: RefCell::new(Box::new(callback)),
+            },
+        ));
+        self
+    }
+}
+
+impl<T: Serialize + ?Sized> Serialize for StructHookBuilder<'_, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.inner.serialize(serializer)
+    }
+}
+
+impl<'s, T: Serialize + ?Sized> HookPath<'s, T> for StructHookBuilder<'s, T> {
+    fn on_struct(self, path: impl Into<Cow<'static, str>>) -> StructHookBuilder<'s, T> {
+        todo!()
+    }
+}
+
+pub struct HookBuilderWithHooks<'s, 'h: 's, T: Serialize + ?Sized, H: Hooks> {
+    inner: HookBuilderInner<'s, T>,
+    external_hooks: &'h H,
+}
+
+pub fn hook2<'s, T: Serialize + ?Sized>(serializable: &'s T) -> impl HookPath<'s, T> {
+    HookBuilder {
+        inner: HookBuilderInner {
+            serializable,
+            path_actions: Default::default(),
+        },
+    }
+}
+
+fn hooks_with_actions<'a: 's, 's, 'h: 's, H: Hooks>(
+    path_actions: &'a SmallVec<[(Option<Cow<'static, str>>, PathActions<'s>); 8]>,
+    external_hooks: &'h H,
+) -> impl Hooks + 'a {
+    //TODO build hooks & actually serialize
+    struct BuiltHooks<'a, 's, 'h: 's, H: Hooks> {
+        path_actions: &'a SmallVec<[(Option<Cow<'static, str>>, PathActions<'s>); 8]>,
+        external_hooks: &'h H,
+    }
+
+    impl<H: Hooks> Hooks for BuiltHooks<'_, '_, '_, H> {
+        fn on_struct(&self, path: &Path, st: &mut StructScope) {
+            for (path_selector, path_actions) in self.path_actions {
+                //TODO apply actions to scope if path matches
+
+                (path_actions.callback.borrow_mut())(path, st);
+            }
+
+            self.external_hooks.on_struct(path, st);
+        }
+    }
+
+    BuiltHooks {
+        path_actions,
+        external_hooks,
+    }
+}
+
+#[test]
+fn test_example() {
+    #[derive(Serialize, Default)]
+    struct Payload {
+        field: (),
+    }
+
+    let res = serde_json::to_string_pretty(
+        &hook2(&Payload::default())
+            .on_struct("path")
+            .rename_all_fields_case()
+            .call(|_path, st| println!("on_struct {name}", name = st.struct_name())),
+    )
+    .unwrap();
+    println!("{res}");
 }
