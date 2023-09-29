@@ -211,7 +211,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                         }
                         !matches
                     }
-                    StructFieldAction::RenameAll(_) => false,
+                    StructFieldAction::RenameAllCase(_) => false,
                     StructFieldAction::Flatten(n) => {
                         let matches = field_key == *n;
                         if matches {
@@ -225,49 +225,50 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                     skip_field = true;
                 }
 
-                if !renamed_field {
-                    if let Some(case) = rename_all {
-                        field_key = Case::string_to_case(&field_key, *case).into();
-                    }
-                }
-
-                hooks.path_push(PathSegment::StructField(key));
-
-                if let Some(replacement_value) = &replacement_value {
-                    replacement_value
-                        .check_if_can_serialize()
-                        .or_else(|err| hooks.on_error::<S>(err))?;
-                }
-
-                let res = if skip_field {
+                if skip_field {
                     wrap.skip_field(key)
-                } else if let Some(replacement_value) = replacement_value {
-                    wrap.serialize_field(hooks.make_static_str(field_key), &replacement_value)
                 } else {
-                    let s = SerializableWithHooks::new(value, *hooks, SerializableKind::Value);
+                    hooks.path_push(PathSegment::StructField(key));
 
-                    if flatten {
-                        let serialize_map = match wrap {
-                            Wrap::SerializeAsMap(m) => m,
-                            _ => unreachable!(),
-                        };
-
-                        let flatten_serializer = FlattenSerializer::new(serialize_map);
-                        match s.serialize(flatten_serializer) {
-                            Ok(r) => Ok(r),
-                            Err(FlattenError::SerializerError(e)) => Err(e),
-                            Err(FlattenError::UnsupportedDataType(data_type)) => hooks
-                                .on_error::<S>(HooksError::CannotFlattenUnsupportedDataType(
-                                    data_type,
-                                )),
+                    if !renamed_field {
+                        if let Some(case) = rename_all {
+                            field_key = Case::cow_to_case(&field_key, *case);
                         }
-                    } else {
-                        wrap.serialize_field(hooks.make_static_str(field_key), &s)
                     }
-                };
 
-                hooks.path_pop();
-                res
+                    if let Some(replacement_value) = &replacement_value {
+                        replacement_value
+                            .check_if_can_serialize()
+                            .or_else(|err| hooks.on_error::<S>(err))?;
+                    }
+
+                    let res = if let Some(replacement_value) = replacement_value {
+                        wrap.serialize_field(hooks.make_static_str(field_key), &replacement_value)
+                    } else {
+                        let s = SerializableWithHooks::new(value, *hooks, SerializableKind::Value);
+
+                        if flatten {
+                            let serialize_map = match wrap {
+                                Wrap::SerializeAsMap(m) => m,
+                                _ => unreachable!(),
+                            };
+
+                            let flatten_serializer = FlattenSerializer::new(serialize_map);
+                            match s.serialize(flatten_serializer) {
+                                Ok(r) => Ok(r),
+                                Err(FlattenError::SerializerError(e)) => Err(e),
+                                Err(FlattenError::UnsupportedDataType(data_type)) => hooks
+                                    .on_error::<S>(HooksError::CannotFlattenUnsupportedDataType(
+                                        data_type,
+                                    )),
+                            }
+                        } else {
+                            wrap.serialize_field(hooks.make_static_str(field_key), &s)
+                        }
+                    };
+                    hooks.path_pop();
+                    res
+                }
             }
         }
     }
@@ -290,7 +291,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeStructWrapper<'h, S,
                         | StructFieldAction::Flatten(f) => {
                             hooks.on_error::<S>(HooksError::FieldNotFound(f))?
                         }
-                        StructFieldAction::RenameAll(_) => {}
+                        StructFieldAction::RenameAllCase(_) => {}
                     }
                 }
 
@@ -373,7 +374,7 @@ fn have_retains(field_actions: &StructFieldActions) -> bool {
 
 fn rename_all(field_actions: &StructFieldActions) -> Option<Case> {
     field_actions.iter().rev().find_map(|a| match a {
-        StructFieldAction::RenameAll(case) => Some(*case),
+        StructFieldAction::RenameAllCase(case) => Some(*case),
         _ => None,
     })
 }

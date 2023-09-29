@@ -209,6 +209,24 @@ fn test_rename_field() {
 }
 
 #[test]
+fn test_rename_field_case() {
+    #[derive(Serialize)]
+    struct Payload {
+        some_field: (),
+    }
+
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
+            st.rename_field_case("some_field", "SCREAMING-KEBAB-CASE");
+        }
+    }
+
+    let json = serde_json::to_string(&ser::hook(&Payload { some_field: () }, &Hooks)).unwrap();
+    assert_eq!(json, "{\"SOME-FIELD\":null}");
+}
+
+#[test]
 fn test_rename_all_fields() {
     #[derive(Serialize)]
     enum Enum {

@@ -5,7 +5,6 @@ use crate::{
     Case, StaticValue,
 };
 
-//TODO add rename_field_case
 //TODO document errors
 
 /// Inspect structs and modify their contents.
@@ -96,6 +95,31 @@ impl StructScope {
         self
     }
 
+    /// Rename a field according to the given case convention.
+    ///
+    /// The `key` refers to the original field key in the struct, even if [`rename_all_fields_case`](Self::rename_all_fields_case)
+    /// is called.
+    ///
+    /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
+    /// `#[serde(rename_all=...)]`, you need to specify the field key as it will be *after* serde renaming.
+    ///
+    /// The renaming will happen at runtime, which would (most likely) lead to an allocation of a new
+    /// String. It is thus more optimal to pass a static string literal into [`rename_field`](Self::rename_field) instead.
+    /// See also [Static strings](crate::ser#static-strings) for more info on special handing of strings in serde.
+    ///
+    /// Returns `self` to allow chaining calls.
+    pub fn rename_field_case(
+        &mut self,
+        key: impl Into<Cow<'static, str>>,
+        case: impl Into<Case>,
+    ) -> &mut Self {
+        let key = key.into();
+        let new_key = Case::cow_to_case(&key, case.into());
+        self.field_actions
+            .push(StructFieldAction::Rename(key, new_key));
+        self
+    }
+
     /// Rename all structure fields according to the given case convention.
     ///
     /// If specified multiple times, the last case convention is used.
@@ -114,7 +138,7 @@ impl StructScope {
     /// Returns `self` to allow chaining calls.
     pub fn rename_all_fields_case(&mut self, case: impl Into<Case>) -> &mut Self {
         self.field_actions
-            .push(StructFieldAction::RenameAll(case.into()));
+            .push(StructFieldAction::RenameAllCase(case.into()));
         self
     }
 

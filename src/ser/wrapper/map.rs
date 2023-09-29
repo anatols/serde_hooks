@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 
 use crate::path::PathMapKey;
 use crate::ser::{HooksError, MapInsertLocation};
-use crate::{PathSegment, StaticValue, Value};
+use crate::{Case, PathSegment, StaticValue, Value};
 
 use super::{
     MapEntryAction, MapEntryActions, SerializableKind, SerializableWithHooks,
@@ -23,6 +23,7 @@ pub(crate) enum SerializeMapWrapper<'h, S: Serializer, H: SerializerWrapperHooks
         have_retains: bool,
         entry_index: Cell<usize>,
         str_key_buffer: String, // reusable String for &str type keys to reduce allocations
+        rename_all: Option<Case>,
     },
     Skipped {
         end_result: Result<S::Ok, S::Error>,
@@ -56,9 +57,8 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> SerializeMapWrapper<'h, S, H>
         Ok(Self::Wrapped {
             serialize_map: serializer.serialize_map(len)?,
             hooks,
-            have_retains: actions
-                .iter()
-                .any(|a| matches!(a, MapEntryAction::Retain(_))),
+            have_retains: have_retains(&actions),
+            rename_all: rename_all(&actions),
             actions,
             entry_index: Cell::new(0),
             str_key_buffer: String::default(),
@@ -144,6 +144,7 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                 have_retains,
                 entry_index,
                 str_key_buffer,
+                rename_all,
             } => {
                 let mut map_key_value = MapKeyCapture::capture(key, std::mem::take(str_key_buffer));
 
@@ -206,6 +207,16 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                         }
                         !matches
                     }
+                    MapEntryAction::RenameAllCase(_) => false,
+                    MapEntryAction::RenameCase(k, case) => {
+                        let matches = k.matches_path_key(&map_key_value, entry_index.get());
+                        if matches {
+                            if let Value::Str(s) = &map_key_value {
+                                replacement_key = Some(Case::string_to_case(s, *case).into());
+                            }
+                        }
+                        !matches
+                    }
                 });
 
                 if *have_retains && !retain_entry {
@@ -217,51 +228,63 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                     Self::insert_entry(serialize_map, hooks, entry_index.get(), k, v)?;
                 }
 
-                let path_map_key = PathMapKey::new(entry_index.get(), map_key_value);
-                hooks.path_push(path_map_key.into());
-
-                if let Some(replacement_value) = &replacement_value {
-                    replacement_value
-                        .check_if_can_serialize()
-                        .or_else(|err| hooks.on_error::<S>(err))?;
-                }
-
-                if let Some(replacement_key) = &replacement_key {
-                    replacement_key
-                        .check_if_can_serialize()
-                        .or_else(|err| hooks.on_error::<S>(err))?;
-                }
-
-                let res = if replace_entry {
-                    if let Some(replacement_key) = &replacement_key {
-                        serialize_map.serialize_entry(replacement_key, &replacement_value)
-                    } else {
-                        serialize_map.serialize_entry(key, &replacement_value)
-                    }
-                } else if skip_entry {
+                let res = if skip_entry {
                     Ok(())
-                } else if let Some(replacement_key) = &replacement_key {
-                    serialize_map.serialize_entry(
-                        replacement_key,
-                        &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
-                    )
                 } else {
-                    serialize_map.serialize_entry(
-                        &SerializableWithHooks::new(key, *hooks, SerializableKind::MapKey),
-                        &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
-                    )
+                    if replacement_key.is_none() {
+                        if let Some(case) = rename_all {
+                            if let Value::Str(s) = &map_key_value {
+                                replacement_key = Some(Case::string_to_case(s, *case).into());
+                            }
+                        }
+                    }
+
+                    let path_map_key = PathMapKey::new(entry_index.get(), map_key_value);
+                    hooks.path_push(path_map_key.into());
+
+                    if let Some(replacement_value) = &replacement_value {
+                        replacement_value
+                            .check_if_can_serialize()
+                            .or_else(|err| hooks.on_error::<S>(err))?;
+                    }
+
+                    if let Some(replacement_key) = &replacement_key {
+                        replacement_key
+                            .check_if_can_serialize()
+                            .or_else(|err| hooks.on_error::<S>(err))?;
+                    }
+
+                    let res = if replace_entry {
+                        if let Some(replacement_key) = &replacement_key {
+                            serialize_map.serialize_entry(replacement_key, &replacement_value)
+                        } else {
+                            serialize_map.serialize_entry(key, &replacement_value)
+                        }
+                    } else if let Some(replacement_key) = &replacement_key {
+                        serialize_map.serialize_entry(
+                            replacement_key,
+                            &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
+                        )
+                    } else {
+                        serialize_map.serialize_entry(
+                            &SerializableWithHooks::new(key, *hooks, SerializableKind::MapKey),
+                            &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
+                        )
+                    };
+
+                    let segment = hooks.path_pop();
+
+                    // Trying to reclaim the reusable string buffer from the popped path segment
+                    if let PathSegment::MapEntry(PathMapKey {
+                        value: Value::Str(Cow::Owned(mut s)),
+                        ..
+                    }) = segment
+                    {
+                        std::mem::swap(str_key_buffer, &mut s)
+                    }
+
+                    res
                 };
-
-                let segment = hooks.path_pop();
-
-                // Trying to reclaim the reusable string buffer from the popped path segment
-                if let PathSegment::MapEntry(PathMapKey {
-                    value: Value::Str(Cow::Owned(mut s)),
-                    ..
-                }) = segment
-                {
-                    std::mem::swap(str_key_buffer, &mut s)
-                }
 
                 // Insert entries after
                 for (k, v) in insert_after {
@@ -303,9 +326,11 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                         MapEntryAction::ReplaceValue(k, _)
                         | MapEntryAction::Retain(k)
                         | MapEntryAction::Skip(k)
-                        | MapEntryAction::ReplaceKey(k, _) => {
+                        | MapEntryAction::ReplaceKey(k, _)
+                        | MapEntryAction::RenameCase(k, _) => {
                             hooks.on_error::<S>(HooksError::KeyNotFound(k))?
                         }
+                        MapEntryAction::RenameAllCase(_) => {}
                     }
                 }
 
@@ -543,4 +568,17 @@ impl<'b> Serializer for MapKeyCapture<'b> {
             len,
         }))
     }
+}
+
+fn have_retains(entry_actions: &MapEntryActions) -> bool {
+    entry_actions
+        .iter()
+        .any(|a| matches!(a, MapEntryAction::Retain(_)))
+}
+
+fn rename_all(entry_actions: &MapEntryActions) -> Option<Case> {
+    entry_actions.iter().rev().find_map(|a| match a {
+        MapEntryAction::RenameAllCase(case) => Some(*case),
+        _ => None,
+    })
 }

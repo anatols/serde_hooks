@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 /// Case convention for case-renaming actions.
 ///
 /// During serialization, if you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
@@ -79,6 +81,34 @@ impl Case {
             Case::ScreamingSnake => key.to_case(convert_case::Case::ScreamingSnake),
             Case::Kebab => key.to_case(convert_case::Case::Kebab),
             Case::ScreamingKebab => key.to_case(convert_case::Case::UpperKebab),
+        }
+    }
+
+    #[allow(clippy::ptr_arg)]
+    /// For borrowed static strings that did not change when converted the static str is reused
+    /// in the returned cow.
+    pub(crate) fn cow_to_case(key: &Cow<'static, str>, to_case: Case) -> Cow<'static, str> {
+        use convert_case::Casing;
+        let converted = match to_case {
+            Case::Lower => key.to_case(convert_case::Case::Lower),
+            Case::Upper => key.to_case(convert_case::Case::Upper),
+            Case::Pascal => key.to_case(convert_case::Case::Pascal),
+            Case::Camel => key.to_case(convert_case::Case::Camel),
+            Case::Snake => key.to_case(convert_case::Case::Snake),
+            Case::ScreamingSnake => key.to_case(convert_case::Case::ScreamingSnake),
+            Case::Kebab => key.to_case(convert_case::Case::Kebab),
+            Case::ScreamingKebab => key.to_case(convert_case::Case::UpperKebab),
+        };
+
+        match key {
+            Cow::Borrowed(s) => {
+                if *s != converted {
+                    converted.into()
+                } else {
+                    (*s).into()
+                }
+            }
+            Cow::Owned(_) => converted.into(),
         }
     }
 }

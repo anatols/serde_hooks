@@ -86,7 +86,7 @@ pub(crate) enum StructFieldAction {
     Skip(Cow<'static, str>),
     Rename(Cow<'static, str>, Cow<'static, str>),
     ReplaceValue(Cow<'static, str>, StaticValue),
-    RenameAll(Case),
+    RenameAllCase(Case),
     Flatten(Cow<'static, str>),
 }
 
@@ -102,6 +102,8 @@ pub(crate) enum MapEntryAction {
     Insert(StaticValue, StaticValue, MapInsertLocation),
     ReplaceValue(MapKeySelector, StaticValue),
     ReplaceKey(MapKeySelector, StaticValue),
+    RenameCase(MapKeySelector, Case),
+    RenameAllCase(Case),
 }
 
 pub(crate) type MapEntryActions = SmallVec<[MapEntryAction; 8]>;
