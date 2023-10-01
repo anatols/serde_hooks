@@ -5,8 +5,6 @@ use crate::{
     Case, StaticValue,
 };
 
-//TODO document errors
-
 /// Inspect structs and modify their contents.
 ///
 /// See [`Hooks::on_struct`](crate::ser::Hooks::on_struct),
@@ -50,6 +48,10 @@ impl StructScope {
     ///
     /// Runtime equivalent to `#[serde(skip)]` or `#[serde(skip_serializing)]`.
     ///
+    /// If the field is not found in the struct, [`HooksError::FieldNotFound`](crate::ser::HooksError::FieldNotFound)
+    /// is produced _after_ the struct is serialized. You can process or ignore this error in
+    /// [`Hooks::on_scope_error`](crate::ser::Hooks::on_scope_error).
+    ///
     /// Returns `self` to allow chaining calls.
     pub fn skip_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
         self.field_actions.push(StructFieldAction::Skip(key.into()));
@@ -65,6 +67,10 @@ impl StructScope {
     /// There is no equivalent in serde derive, but you can see this as a 'whitelist'
     /// counterpart of `#[serde(skip)]`.
     ///
+    /// If the field is not found in the struct, [`HooksError::FieldNotFound`](crate::ser::HooksError::FieldNotFound)
+    /// is produced _after_ the struct is serialized. You can process or ignore this error in
+    /// [`Hooks::on_scope_error`](crate::ser::Hooks::on_scope_error).
+    ///
     /// Returns `self` to allow chaining calls.
     pub fn retain_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {
         self.field_actions
@@ -79,6 +85,10 @@ impl StructScope {
     ///
     /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
     /// `#[serde(rename_all=...)]`, you need to specify the field key as it will be *after* serde renaming.
+    ///
+    /// If the field is not found in the struct, [`HooksError::FieldNotFound`](crate::ser::HooksError::FieldNotFound)
+    /// is produced _after_ the struct is serialized. You can process or ignore this error in
+    /// [`Hooks::on_scope_error`](crate::ser::Hooks::on_scope_error).
     ///
     /// Serde expects field names to be known at compile time, and as such, to be static. Passing in a
     /// borrowed `&'static str` for the new key name here fulfills this. However, passing in
@@ -102,6 +112,10 @@ impl StructScope {
     ///
     /// If you use serde's `#[derive(Serialize)]` and `#[serde(rename=...)]` or
     /// `#[serde(rename_all=...)]`, you need to specify the field key as it will be *after* serde renaming.
+    ///
+    /// If the field is not found in the struct, [`HooksError::FieldNotFound`](crate::ser::HooksError::FieldNotFound)
+    /// is produced _after_ the struct is serialized. You can process or ignore this error in
+    /// [`Hooks::on_scope_error`](crate::ser::Hooks::on_scope_error).
     ///
     /// The renaming will happen at runtime, which would (most likely) lead to an allocation of a new
     /// String. It is thus more optimal to pass a static string literal into [`rename_field`](Self::rename_field) instead.
@@ -161,6 +175,10 @@ impl StructScope {
     /// Some serializers might expect the types to be following a schema, and fail the serialization
     /// if the replacement value is of a wrong type.
     ///
+    /// If the field is not found in the struct, [`HooksError::FieldNotFound`](crate::ser::HooksError::FieldNotFound)
+    /// is produced _after_ the struct is serialized. You can process or ignore this error in
+    /// [`Hooks::on_scope_error`](crate::ser::Hooks::on_scope_error).
+    ///
     /// Returns `self` to allow chaining calls.
     pub fn replace_value(
         &mut self,
@@ -203,7 +221,8 @@ impl StructScope {
     ///
     /// The field value must be of struct, struct variant or map type, otherwise
     /// [`CannotFlattenUnsupportedDataType`](crate::ser::HooksError::CannotFlattenUnsupportedDataType)
-    /// is produced.
+    /// is produced. You can process or ignore this error in
+    /// [`Hooks::on_scope_error`](crate::ser::Hooks::on_scope_error).
     ///
     /// This removes one level of hierarchy for the field, adding the struct fields
     /// (map entries) from the field value straight into this struct.
@@ -211,6 +230,10 @@ impl StructScope {
     /// Flattening any field causes this struct to be serialized as a map with
     /// no length hint to the serializer. Some serializers do not support this.
     /// See [`serialize_as_map`](Self::serialize_as_map) for more details and implications.
+    ///
+    /// If the field is not found in the struct, [`HooksError::FieldNotFound`](crate::ser::HooksError::FieldNotFound)
+    /// is produced _after_ the struct is serialized. You can process or ignore this error in
+    /// [`Hooks::on_scope_error`](crate::ser::Hooks::on_scope_error).
     ///
     /// Returns `self` to allow chaining calls.
     pub fn flatten_field(&mut self, key: impl Into<Cow<'static, str>>) -> &mut Self {

@@ -338,7 +338,6 @@ fn test_error() {
     }
     impl ser::Hooks for Hooks {
         fn on_struct(&self, _path: &Path, st: &mut ser::StructScope) {
-            //TODO test other functions
             st.retain_field("invalid");
         }
 
