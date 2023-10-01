@@ -147,6 +147,14 @@ Knowing a path allows you to apply different actions to different parts of your 
 
 See documentation for [`Path`](crate::Path) for more information.
 
+## Introspection
+
+Scopes and paths give you access to metadata of your serialized values. You can use hooks
+to collect that metadata.
+
+In this case, you often don't need any serialized result in a data format. What you need is the hooks
+being called on your data. For this, you can use [`ser::invoke_hooks()`] function.
+
 ## Static strings
 
 Serde expects many things to be `&'static str`.

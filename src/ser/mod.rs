@@ -7,6 +7,7 @@ use serde::{Serialize, Serializer};
 mod context;
 mod scope;
 mod value;
+mod void_serializer;
 mod wrapper;
 
 pub use scope::{
@@ -315,4 +316,18 @@ pub fn hook<'s, 'h: 's, T: Serialize + ?Sized, H: Hooks>(
     hooks: &'h H,
 ) -> impl Serialize + 's {
     SerializableWithContext::new(serializable, hooks)
+}
+
+/// Invoke hooks on a serializable value.
+///
+/// Internally this function attaches the passed in hooks and performs serialization of
+/// the value using a special 'fake' serializer that throws away anything fed into it.
+///
+/// This function is useful when you don't need a produced serialized result, but are
+/// only interested in the hooks being called. For example, when introspecting the data.
+pub fn invoke_hooks<'s, 'h: 's, T: Serialize + ?Sized, H: Hooks>(
+    serializable: &'s T,
+    hooks: &'h H,
+) -> Result<(), void_serializer::Error> {
+    hook(serializable, hooks).serialize(void_serializer::VoidSerializer)
 }
