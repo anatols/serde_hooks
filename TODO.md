@@ -1,7 +1,5 @@
 # Must have before the initial release
 
-- Publish on crates.io / docs.rs.
-
 - Set up github pipeline to generate docs.
 
 # Ideas & wishlist
