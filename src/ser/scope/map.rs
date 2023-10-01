@@ -5,8 +5,6 @@ use crate::{
     Case, StaticValue,
 };
 
-//TODO tests for everything
-
 /// Inspect maps and modify their contents.
 ///
 /// See [`Hooks::on_map`](crate::ser::Hooks::on_map).
@@ -217,12 +215,39 @@ impl MapScope {
 pub enum MapKeySelector {
     /// Select entry by matching key.
     ///
+    /// For primitive types, you'd normally construct this variant by calling `.into()` on a
+    /// value of a type that is representable in [`StaticValue`]. [`MapScope`] methods
+    /// are generic over `Into<MapKeySelector>`, which means they can be called like this:
+    /// ```
+    /// # use serde_hooks::{ser, Path};
+    /// # struct Hooks;
+    /// impl ser::Hooks for Hooks {
+    ///     fn on_map(&self, _path: &Path, map: &mut ser::MapScope) {
+    ///         map.skip_entry(1u32); // skipping by key
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Note that matching is type-sensitive. A selector of `u32` will _not_ match a key of `i32` etc.
+    ///
     /// For compound values only metadata is stored in [`StaticValue`] and then matched
     /// against the serialized keys. This means that if your map is keyed by compound keys
     /// (tuples, structs etc.), there is no way to reliably select a concrete key.
     ByValue(StaticValue),
 
     /// Select entry by it's sequential index during serialization.
+    ///
+    /// You'd normally construct this variant by calling `.into()` on value of `usize` type.
+    /// [`MapScope`] methods are generic over `Into<MapKeySelector>`, which means they can be called like this:
+    /// ```
+    /// # use serde_hooks::{ser, Path};
+    /// # struct Hooks;
+    /// impl ser::Hooks for Hooks {
+    ///     fn on_map(&self, _path: &Path, map: &mut ser::MapScope) {
+    ///         map.skip_entry(2usize); // skipping by entry index
+    ///     }
+    /// }
+    /// ```
     ///
     /// This is the position in the order in which the original map entries are fed into the
     /// serializer. Selecting by index obviously only makes sense for ordered maps.
