@@ -2,8 +2,7 @@
 
 - Publish on crates.io / docs.rs.
 
-- Set up github pipeline to build, test, clippy, check fmt, generate docs.
-
+- Set up github pipeline to generate docs.
 
 # Ideas & wishlist
 
@@ -17,3 +16,5 @@
 - Support for insert before, insert after, push back in sequences.
 
 - Examples for each function of each scope
+
+- Add shields to readme.
