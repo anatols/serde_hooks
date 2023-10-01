@@ -2,8 +2,6 @@
 
 - Publish on crates.io / docs.rs.
 
-- Address remaining TODOs in code. None must remain.
-
 - Set up github pipeline to build, test, clippy, check fmt, generate docs.
 
 
@@ -17,3 +15,5 @@
 - Flatten for sequences.
 
 - Support for insert before, insert after, push back in sequences.
+
+- Examples for each function of each scope
