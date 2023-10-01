@@ -151,6 +151,18 @@ impl ToString for Path {
     }
 }
 
+impl PartialEq<str> for Path {
+    fn eq(&self, other: &str) -> bool {
+        *self.borrow_str() == other
+    }
+}
+
+impl PartialEq<Path> for str {
+    fn eq(&self, other: &Path) -> bool {
+        *other.borrow_str() == self
+    }
+}
+
 /// A key of a serialized map entry.
 #[derive(Debug, Clone)]
 pub struct PathMapKey {
