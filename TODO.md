@@ -1,7 +1,3 @@
-# Must have before the initial release
-
-- Set up github pipeline to generate docs.
-
 # Ideas & wishlist
 
 - Make struct field-related errors ("field not found" when doing a rename/skip/flatten) not propagate by default.

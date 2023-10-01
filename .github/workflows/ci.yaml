@@ -47,3 +47,19 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rust-docs
+      - uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --lib --no-deps -Zunstable-options -Zrustdoc-scrape-examples
