@@ -66,6 +66,12 @@ impl Path {
         &self.segments
     }
 
+    /// Returns `true` if the path is pointing at the root element of the serialized
+    /// data.
+    pub fn is_root(&self) -> bool {
+        self.segments.is_empty()
+    }
+
     /// Returns a string representation of the path.
     ///
     /// The string representation resembles how you would access elements of your
@@ -131,6 +137,17 @@ impl Path {
         }
 
         Ref::map(self.str_cache.borrow(), |c| &c.cache)
+    }
+}
+
+impl ToString for Path {
+    /// Returns a string representation of the path.
+    ///
+    /// This method allocates a new `String` with a copy of path's string representation.
+    /// If you want to avoid allocations and copying, consider using [`borrow_str()`](crate::Path::borrow_str)
+    /// instead.
+    fn to_string(&self) -> String {
+        self.borrow_str().clone()
     }
 }
 
