@@ -12,3 +12,5 @@
 - Examples for each function of each scope
 
 - Add shields to readme.
+
+- Add similar libraries to readme.
