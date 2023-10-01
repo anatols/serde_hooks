@@ -9,7 +9,9 @@ description = "Runtime hooks for serde"
 documentation = "https://docs.rs/serde_hooks"
 keywords = ["serde", "serialization", "callback", "hook", "introspection"]
 repository = "https://github.com/anatols/serde_hooks"
+homepage = "https://github.com/anatols/serde_hooks"
 rust-version = "1.68"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
