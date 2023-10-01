@@ -150,7 +150,6 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
 
                 let mut retain_entry = false;
                 let mut skip_entry = false;
-                let mut replace_entry = false;
                 let mut replacement_value: Option<Value> = None;
                 let mut replacement_key: Option<Value> = None;
                 let mut insert_before: SmallVec<[(StaticValue, StaticValue); 2]> =
@@ -180,21 +179,20 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                             if matches {
                                 insert_before.push((k.clone(), v.clone()));
                             }
-                            matches
+                            !matches
                         }
                         MapInsertLocation::After(after) => {
                             let matches = after.matches_path_key(&map_key_value, entry_index.get());
                             if matches {
                                 insert_after.push((k.clone(), v.clone()));
                             }
-                            matches
+                            !matches
                         }
                         MapInsertLocation::End => true,
                     },
                     MapEntryAction::ReplaceValue(k, v) => {
                         let matches = k.matches_path_key(&map_key_value, entry_index.get());
                         if matches {
-                            replace_entry = true;
                             replacement_value = Some(v.clone());
                         }
                         !matches
@@ -254,22 +252,20 @@ impl<'h, S: Serializer, H: SerializerWrapperHooks> serde::ser::SerializeMap
                             .or_else(|err| hooks.on_error::<S>(err))?;
                     }
 
-                    let res = if replace_entry {
-                        if let Some(replacement_key) = &replacement_key {
-                            serialize_map.serialize_entry(replacement_key, &replacement_value)
-                        } else {
-                            serialize_map.serialize_entry(key, &replacement_value)
-                        }
-                    } else if let Some(replacement_key) = &replacement_key {
-                        serialize_map.serialize_entry(
-                            replacement_key,
-                            &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
-                        )
-                    } else {
-                        serialize_map.serialize_entry(
+                    let res = match (&replacement_key, &replacement_value) {
+                        (None, None) => serialize_map.serialize_entry(
                             &SerializableWithHooks::new(key, *hooks, SerializableKind::MapKey),
                             &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
-                        )
+                        ),
+                        (None, Some(v)) => serialize_map.serialize_entry(
+                            &SerializableWithHooks::new(key, *hooks, SerializableKind::MapKey),
+                            v,
+                        ),
+                        (Some(k), None) => serialize_map.serialize_entry(
+                            k,
+                            &SerializableWithHooks::new(value, *hooks, SerializableKind::Value),
+                        ),
+                        (Some(k), Some(v)) => serialize_map.serialize_entry(k, v),
                     };
 
                     let segment = hooks.path_pop();
