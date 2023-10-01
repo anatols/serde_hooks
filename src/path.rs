@@ -103,7 +103,6 @@ impl Path {
     ///
     /// You should prefer this method over `to_string()` and string formatting (`Display`)
     /// if performance is important.
-    /// ```
     pub fn borrow_str(&self) -> Ref<'_, String> {
         {
             let mut str_cache = self.str_cache.borrow_mut();
