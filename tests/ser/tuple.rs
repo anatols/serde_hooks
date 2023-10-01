@@ -41,7 +41,7 @@ fn test_tuple_traversing() {
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
-            match path.as_ref() {
+            match path.as_str() {
                 "tuple" => {
                     assert_eq!(tpl.tuple_len(), 2);
                 }
@@ -78,7 +78,7 @@ fn test_tuple_traversing() {
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
-            match path.as_ref() {
+            match path.as_str() {
                 "tuple_variant" => {
                     assert_eq!(ev.enum_name(), "Enum");
                     assert_eq!(ev.variant_name(), "TupleVariant");
@@ -102,7 +102,7 @@ fn test_tuple_traversing() {
 
             assert_eq!(Some(tpl.tuple_len()), seq.seq_len());
 
-            match path.as_ref() {
+            match path.as_str() {
                 "tuple_struct" => {
                     assert_eq!(tpl.tuple_len(), 5);
                     assert_eq!(tpl.struct_name(), "TupleStruct");

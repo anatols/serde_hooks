@@ -61,7 +61,7 @@ fn test_struct_traversing() {
             let path = path.borrow_str();
             self.fields_to_expect.borrow_mut().remove(path.as_str());
 
-            match path.as_ref() {
+            match path.as_str() {
                 "" => {
                     assert_eq!(st.struct_name(), "Outer");
                     assert_eq!(st.struct_len(), 2);
@@ -87,7 +87,7 @@ fn test_struct_traversing() {
             let path = path.borrow_str();
             self.fields_to_expect.borrow_mut().remove(path.as_str());
 
-            match path.as_ref() {
+            match path.as_str() {
                 "payload.e" => {
                     assert_eq!(ev.enum_name(), "Enum");
                     assert_eq!(ev.variant_index(), 1);
@@ -159,7 +159,7 @@ fn test_retain_field_in_struct_variant() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
-            if path.segments().is_empty() {
+            if path.is_root() {
                 st.retain_field("e");
             }
         }
@@ -183,7 +183,7 @@ fn test_rename_field() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
-            if path.segments().is_empty() {
+            if path.is_root() {
                 st.rename_field("p1", "not_foo")
                     .rename_field("p2", format!("bar_{}", 42))
                     .rename_field("p3", "baz2")
@@ -245,7 +245,7 @@ fn test_rename_all_fields() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
-            if path.segments().is_empty() {
+            if path.is_root() {
                 st.rename_all_fields_case("PascalCase")
                     .rename_field("BAR-BAZ", "bbz");
             }
@@ -281,7 +281,7 @@ fn test_replace_value() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_struct(&self, path: &Path, st: &mut ser::StructScope) {
-            if path.segments().is_empty() {
+            if path.is_root() {
                 st.replace_value("p3", -15i16);
             }
         }
@@ -343,7 +343,7 @@ fn test_error() {
         }
 
         fn on_scope_error(&self, path: &Path, err: &mut ser::ErrorScope) {
-            assert_eq!(*path.borrow_str(), "");
+            assert_eq!(path, "");
             assert_eq!(
                 *err.error(),
                 ser::HooksError::FieldNotFound("invalid".into())

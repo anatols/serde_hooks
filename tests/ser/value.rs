@@ -154,7 +154,7 @@ fn test_values() {
 
             // Note, all owned values will be received here as borrowed, just
             // with their own lifetimes
-            match (path.as_ref(), value.value()) {
+            match (path.as_str(), value.value()) {
                 (
                     "",
                     Value::Struct {
@@ -280,8 +280,8 @@ fn test_replace_in_struct() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
-            if !path.segments().is_empty() {
-                value.replace(&format!("R {}", path.borrow_str()));
+            if !path.is_root() {
+                value.replace(&format!("R {}", path));
             }
         }
     }
@@ -337,8 +337,8 @@ fn test_replace_in_seq() {
     struct Hooks;
     impl ser::Hooks for Hooks {
         fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
-            if !path.segments().is_empty() {
-                value.replace(&format!("R {}", path.borrow_str()));
+            if !path.is_root() {
+                value.replace(&format!("R {}", path));
             }
         }
     }

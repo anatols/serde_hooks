@@ -140,8 +140,7 @@ Every hook will receive a path argument. It is a path within the structure of se
 A path is a list of segments, each segment representing an element of a
 nested container (e.g. a field of a struct, a map entry or a sequence element).
 
-For simplicity, paths can be [cast to strings](crate::Path::borrow_str). In this case they will resemble 
-element access you'd write in Rust.
+For simplicity, paths can be compared to strings, used in string formatting, and [cast to strings](crate::Path::borrow_str). In this case they will resemble element access you'd write in Rust.
 
 Knowing a path allows you to apply different actions to different parts of your serialized data.
 

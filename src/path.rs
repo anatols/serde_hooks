@@ -98,19 +98,11 @@ impl Path {
     /// The borrowed `Ref` must be dropped at the end of the hook otherwise `Path`
     /// will panic later when serialization goes on.
     ///
-    /// You will need to deref the returned `Ref` if you want to compare it against
-    /// another string:
+    /// Note that for common use case for comparing a path to a string you can simply use
+    /// comparison operators.
     ///
-    /// ```
-    /// # use serde_hooks::{ser, Path};
-    /// struct Hooks;
-    /// impl ser::Hooks for Hooks {
-    ///     fn on_value<S: serde::Serializer>(&self, path: &Path, value: &mut ser::ValueScope<S>) {
-    ///         if *path.borrow_str() == "somewhere.some_day" { // note the deref * in front of path
-    ///              //...
-    ///         }
-    ///     }
-    /// }
+    /// You should prefer this method over `to_string()` and string formatting (`Display`)
+    /// if performance is important.
     /// ```
     pub fn borrow_str(&self) -> Ref<'_, String> {
         {
@@ -140,17 +132,6 @@ impl Path {
     }
 }
 
-impl ToString for Path {
-    /// Returns a string representation of the path.
-    ///
-    /// This method allocates a new `String` with a copy of path's string representation.
-    /// If you want to avoid allocations and copying, consider using [`borrow_str()`](crate::Path::borrow_str)
-    /// instead.
-    fn to_string(&self) -> String {
-        self.borrow_str().clone()
-    }
-}
-
 impl PartialEq<str> for Path {
     fn eq(&self, other: &str) -> bool {
         *self.borrow_str() == other
@@ -160,6 +141,18 @@ impl PartialEq<str> for Path {
 impl PartialEq<Path> for str {
     fn eq(&self, other: &Path) -> bool {
         *other.borrow_str() == self
+    }
+}
+
+impl Debug for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.borrow_str().as_str())
+    }
+}
+
+impl Display for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.borrow_str().as_str())
     }
 }
 
