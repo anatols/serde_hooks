@@ -147,4 +147,67 @@ fn test_tuple_traversing() {
     );
 }
 
-//TODO test that modifying tuple/tuple struct/tuple variant sequence turns it into a seq
+#[test]
+fn test_modified_tuple_turns_into_seq() {
+    #[derive(Serialize)]
+    enum Enum {
+        TupleVariant(u32, u32),
+    }
+
+    #[derive(Serialize)]
+    struct TupleStruct(u32, u32);
+
+    #[derive(Serialize)]
+    struct Payload {
+        tuple: (u32, u32),
+        tuple_variant: Enum,
+        tuple_struct: TupleStruct,
+    }
+
+    struct Hooks;
+    impl ser::Hooks for Hooks {
+        fn on_tuple(&self, path: &Path, _tpl: &mut ser::TupleScope, seq: &mut ser::SeqScope) {
+            if path == "tuple" {
+                seq.skip_element(0);
+            }
+        }
+
+        fn on_tuple_variant(
+            &self,
+            path: &Path,
+            _ev: &mut ser::EnumVariantScope,
+            _tpl: &mut ser::TupleScope,
+            seq: &mut ser::SeqScope,
+        ) {
+            if path == "tuple_variant" {
+                seq.retain_element(0);
+            }
+        }
+
+        fn on_tuple_struct(
+            &self,
+            path: &Path,
+            _tpl: &mut ser::TupleStructScope,
+            seq: &mut ser::SeqScope,
+        ) {
+            if path == "tuple_struct" {
+                seq.skip_element(0);
+            }
+        }
+    }
+
+    let payload = Payload {
+        tuple: (1, 2),
+        tuple_variant: Enum::TupleVariant(3, 4),
+        tuple_struct: TupleStruct(5, 6),
+    };
+
+    let without_hooks = ron::to_string(&payload).unwrap();
+    assert_eq!(
+        without_hooks,
+        "(tuple:(1,2),tuple_variant:TupleVariant(3,4),tuple_struct:(5,6))"
+    );
+
+    let with_hooks = ron::to_string(&ser::hook(&payload, &Hooks)).unwrap();
+    assert_eq!(with_hooks, "(tuple:[2],tuple_variant:[3],tuple_struct:[6])");
+}
